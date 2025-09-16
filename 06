@@ -1,0 +1,24 @@
+Código ejemplo de consumo:
+
+  try
+  {
+      ListasNegrasSoapClient wsLN = new ListasNegrasSoapClient();
+
+      using (var scope = new OperationContextScope(wsLN.InnerChannel))
+      {
+          // Add a HTTP Header to an outgoing request USERNAME and PASS
+          HttpRequestMessageProperty requestHeaders = new HttpRequestMessageProperty();
+          requestHeaders.Headers["UserName"] = Properties.Settings.Default.UserName;
+          requestHeaders.Headers["Pass"] = Properties.Settings.Default.Pass;
+          OperationContext.Current.OutgoingMessageProperties[HttpRequestMessageProperty.Name] = requestHeaders;
+
+          DateTime fecNacimiento = Convert.ToDateTime(fecFechaNacimiento.Value);
+          string fecFecha = fecNacimiento.ToString("yyyyMMdd");
+
+          DataSet res = wsLN.sendTransactionDS(cboRealTime.Text, Convert.ToInt32(txtEvento.Text), txtUsuario.Text, txtIdentidad.Text, txtPrimeroNombre.Text, txtSegundoNombre.Text, txtPrimerApellido.Text, txtSegundoApellido.Text, cboTipoPersona.Text, txtNacionalidad.Text, txtRazonSocial.Text, fecFecha, txtGrupoLista.Text);
+      }
+  }
+  catch(Exception ex)
+  {
+      MessageBox.Show(ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+  }
