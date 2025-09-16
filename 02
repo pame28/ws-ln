@@ -1,0 +1,237 @@
+using DataLayer;
+using log4net;
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Globalization;
+using System.Net;
+using System.Web;
+using System.Web.Services;
+using wsListasNegras.Clases;
+using wsListasNegras.wsRecibeInt;
+
+namespace wsListasNegras
+{
+    [WebService(Description = "WebService que funciona como puente para consultas a Listas Negras de MonitorPlus", Namespace = "http://wslistasnegras.banpais.hn/")]
+    [WebServiceBinding(ConformsTo = WsiProfiles.BasicProfile1_1)]
+    [System.ComponentModel.ToolboxItem(false)]
+    public class ListasNegras : System.Web.Services.WebService
+    {
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(xmlwsAD));
+        RecibeIntSoapClient wsListasNegras = new RecibeIntSoapClient();
+
+        [WebMethod]
+        public DataSet sendTransactionDS(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre,
+                                         string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona,
+                                         string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento,
+                                         string tramaGrupoLista)
+        {
+            DataSet dsEnvioTransaccion = EnvioTransaccion(tramaIdentidad, tramaPrimerNombre, tramaSegundoNombre,
+                                                          tramaPrimerApellido, tramaSegundoApellido, tramaTipoPersona,
+                                                          tramaNacionalidad, tramaRazonSocial, tramaFechaNacimiento,
+                                                          tramaGrupoLista);
+
+            Logger.Info($"sendTransactionDS - Se retorno:\n{dsEnvioTransaccion.GetXml()}");
+            return dsEnvioTransaccion;
+        }
+
+        [WebMethod]
+        public clientBlackList sendTransactionOC(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre,
+                                                 string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona,
+                                                 string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento,
+                                                 string tramaGrupoLista)
+        {
+            DataSet dsEnvioTransaccion = new DataSet();
+            try
+            {
+                dsEnvioTransaccion = EnvioTransaccion(tramaIdentidad, tramaPrimerNombre, tramaSegundoNombre,
+                                                      tramaPrimerApellido, tramaSegundoApellido, tramaTipoPersona,
+                                                      tramaNacionalidad, tramaRazonSocial, tramaFechaNacimiento,
+                                                      tramaGrupoLista);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sendTransactionOC.\n{ex.Message}\n{ex.Source}\n{ex.StackTrace}");
+            }
+
+            clientBlackList rBlackList = new clientBlackList();
+
+            if (dsEnvioTransaccion.Tables["dtErrores"].Rows.Count > 0)
+            {
+                rBlackList.errores.codigo = dsEnvioTransaccion.Tables["dtErrores"].Rows[0]["Codigo"].ToString();
+                rBlackList.errores.descripcion = dsEnvioTransaccion.Tables["dtErrores"].Rows[0]["Descripcion"].ToString();
+            }
+            if (dsEnvioTransaccion.Tables["dtListaNegra"].Rows.Count > 0)
+            {
+                rBlackList.Respuesta = dsEnvioTransaccion.Tables["dtListaNegra"].Rows[0]["Respuesta"].ToString();
+            }
+
+            Logger.Info($"sendTransactionOC - Se retorno:\n{rBlackList.toString()}");
+            return rBlackList;
+        }
+
+        private DataSet EnvioTransaccion(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre,
+                                         string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona,
+                                         string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento,
+                                         string tramaGrupoLista)
+        {
+            DataSet dsRespuesta = new DataSet("dsRespuesta");
+            DataTable dtErrores = new DataTable("dtErrores");
+            dtErrores.Columns.Add(new DataColumn("Codigo", typeof(string)));
+            dtErrores.Columns.Add(new DataColumn("Descripcion", typeof(string)));
+
+            DataTable dtListaNegra = new DataTable("dtListaNegra");
+            dtListaNegra.Columns.Add(new DataColumn("Identidad", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Nombre", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Respuesta", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("NombreCoincidencia", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Porcentaje", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Lista", typeof(string)));
+
+            string RealTime = string.Empty;
+            string Evento = string.Empty;
+            string Usuario = string.Empty;
+
+            // --- Código de configuración y usuario omitido por brevedad ---
+            bool superoValidaciones = true;
+
+            // --- Validación centralizada ---
+            superoValidaciones = ValidarDatos(dtErrores, tramaTipoPersona, tramaPrimerNombre, tramaPrimerApellido,
+                                             tramaRazonSocial, tramaFechaNacimiento, tramaGrupoLista);
+
+            if (superoValidaciones)
+            {
+                DateTime FechaActual = DateTime.Now;
+                string tramaFechaEvaluacion = FechaActual.ToString("yyyyMMdd");
+
+                // Preparar nombres según tipo de persona
+                string primerNombre = tramaPrimerNombre;
+                string segundoNombre = tramaSegundoNombre;
+                string primerApellido = tramaPrimerApellido;
+                string segundoApellido = tramaSegundoApellido;
+
+                if (tramaTipoPersona.ToUpper() == "J")
+                {
+                    primerNombre = tramaRazonSocial;
+                    segundoNombre = string.Empty;
+                    primerApellido = string.Empty;
+                    segundoApellido = string.Empty;
+                }
+
+                string tramaEnviar =
+                    RealTime.ToUpper()
+                    + FechaActual.Day.ToString().PadLeft(2, '0')
+                    + FechaActual.Month.ToString().PadLeft(2, '0')
+                    + FechaActual.Year.ToString().PadLeft(4, '0')
+                    + FechaActual.Hour.ToString().PadLeft(2, '0')
+                    + FechaActual.Minute.ToString().PadLeft(2, '0')
+                    + Evento.ToString().PadLeft(5, '0')
+                    + Usuario.PadRight(10, ' ').ToUpper()
+                    + tramaIdentidad.PadRight(18, ' ')
+                    + primerNombre.PadRight(50, ' ')
+                    + segundoNombre.PadRight(50, ' ')
+                    + primerApellido.PadRight(50, ' ')
+                    + segundoApellido.PadRight(50, ' ')
+                    + tramaTipoPersona.ToUpper()
+                    + tramaFechaEvaluacion
+                    + tramaNacionalidad.PadRight(20, ' ')
+                    + tramaRazonSocial.PadRight(200, ' ').ToUpper()
+                    + tramaFechaNacimiento
+                    + tramaGrupoLista.PadLeft(2, '0')
+                    + "".PadRight(47, ' ');
+
+                tramaEnviar = tramaEnviar.ToUpper();
+                Logger.Info($"EnvioTransaccion - Trama enviada a RecibeInt: '{tramaEnviar}'");
+
+                // --- Consumo WS y registro de logs (igual que tu versión original) ---
+            }
+
+            dsRespuesta.Tables.Add(dtErrores);
+            dsRespuesta.Tables.Add(dtListaNegra);
+            return dsRespuesta;
+        }
+
+        // ----------------- MÉTODOS DE VALIDACIÓN REUTILIZABLES -----------------
+        private bool ValidarDatos(DataTable dtErrores, string tipoPersona, string primerNombre, string primerApellido,
+                                  string razonSocial, string fechaNacimiento, string grupoLista)
+        {
+            bool valido = true;
+
+            ValidarLongitud(dtErrores, grupoLista, 2, "E014", "Parametro tramaGrupoLista solo puede ser de 2 caracteres.");
+
+            if (tipoPersona.ToUpper() == "N")
+            {
+                ValidarRequerido(dtErrores, primerNombre, "E021", "Persona Natural requiere Primer Nombre.");
+                ValidarRequerido(dtErrores, primerApellido, "E021", "Persona Natural requiere Primer Apellido.");
+                ValidarFecha(dtErrores, fechaNacimiento, "E013");
+            }
+            else if (tipoPersona.ToUpper() == "J")
+            {
+                ValidarRequerido(dtErrores, razonSocial, "E022", "Persona Jurídica requiere Razon Social.");
+                ValidarLongitud(dtErrores, razonSocial, 200, "E011", "Parametro tramaRazonSocial no puede ser mayor a 200 caracteres.");
+                ValidarFecha(dtErrores, fechaNacimiento, "E013");
+            }
+
+            if (dtErrores.Rows.Count > 0) valido = false;
+            return valido;
+        }
+
+        private void ValidarLongitud(DataTable dtErrores, string valor, int maxLength, string codigo, string descripcion)
+        {
+            if (!string.IsNullOrEmpty(valor) && valor.Length > maxLength)
+                dtErrores.Rows.Add(codigo, descripcion);
+        }
+
+        private void ValidarRequerido(DataTable dtErrores, string valor, string codigo, string descripcion)
+        {
+            if (string.IsNullOrWhiteSpace(valor))
+                dtErrores.Rows.Add(codigo, descripcion);
+        }
+
+        private void ValidarFecha(DataTable dtErrores, string fecha, string codigo)
+        {
+            if (fecha.Length != 8 || !ValidaFecha(fecha))
+                dtErrores.Rows.Add(codigo, "Parametro tramaFechaNacimiento no tiene un formato válido (yyyyMMdd).");
+        }
+
+        private bool ValidaFecha(string fecha)
+        {
+            DateTime fechaConvetida;
+            return DateTime.TryParseExact(fecha, "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out fechaConvetida);
+        }
+
+        private bool ValidaGrupo(string Grupo)
+        {
+            bool valido = false;
+            SQLSrv qValidaGrupo = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_ValidarGrupo");
+            qValidaGrupo.Parametros.Add(new SqlParameter("@Grupo", Grupo));
+
+            DataTable dtValidaGrupo = qValidaGrupo.getDataTableWithParameters();
+            if (qValidaGrupo.Success && dtValidaGrupo.Rows.Count > 0 && dtValidaGrupo.Rows[0][0].ToString() == "1")
+                valido = true;
+            else if (!qValidaGrupo.Success)
+                Logger.Error($"sendTransactionOC - Error ValidandoGrupo: \n {qValidaGrupo.Mensaje}");
+
+            return valido;
+        }
+
+        private bool CredencialesValidas(string usuario, string pass)
+        {
+            if (!Properties.Settings.Default.ValidaUSREnvioTrama)
+                return true;
+
+            string passDescriptadoH = Seguridad.DesEncriptar(pass);
+            string passDescriptado = string.Empty;
+
+            SQLSrv qUsuarios = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_MantUsuarios");
+            qUsuarios.Parametros.Add(new SqlParameter("@opcion", 2));
+            qUsuarios.Parametros.Add(new SqlParameter("@UserName", usuario));
+
+            DataTable dtUsuario = qUsuarios.getDataTableWithParameters();
+            if (qUsuarios.Success && dtUsuario.Rows.Count > 0)
+                passDescriptado = Seguridad.DesEncriptar(dtUsuario.Rows[0][0].ToString());
+
+            return (passDescriptado == passDescriptadoH);
+        }
+    }
+}
