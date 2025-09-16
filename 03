@@ -1,0 +1,353 @@
+using DataLayer;
+using log4net;
+using System;
+using System.Data;
+using System.Data.SqlClient;
+using System.Globalization;
+using System.Net;
+using System.Web;
+using System.Web.Services;
+using wsListasNegras.Clases;
+using wsListasNegras.wsRecibeInt;
+
+namespace wsListasNegras
+{
+    [WebService(Description = "WebService que funciona como puente para consultas a Listas Negras de MonitorPlus", Namespace = "http://wslistasnegras.banpais.hn/")]
+    [WebServiceBinding(ConformsTo = WsiProfiles.BasicProfile1_1)]
+    [System.ComponentModel.ToolboxItem(false)]
+    public class ListasNegras : System.Web.Services.WebService
+    {
+        private static readonly ILog Logger = LogManager.GetLogger(typeof(xmlwsAD));
+        RecibeIntSoapClient wsListasNegras = new RecibeIntSoapClient();
+
+        [WebMethod]
+        public DataSet sendTransactionDS(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre,
+                                         string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona,
+                                         string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento,
+                                         string tramaGrupoLista)
+        {
+            DataSet dsEnvioTransaccion = EnvioTransaccion(tramaIdentidad, tramaPrimerNombre, tramaSegundoNombre,
+                                                          tramaPrimerApellido, tramaSegundoApellido, tramaTipoPersona,
+                                                          tramaNacionalidad, tramaRazonSocial, tramaFechaNacimiento,
+                                                          tramaGrupoLista);
+
+            Logger.Info($"sendTransactionDS - Se retorno:\n{dsEnvioTransaccion.GetXml()}");
+            return dsEnvioTransaccion;
+        }
+
+        [WebMethod]
+        public clientBlackList sendTransactionOC(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre,
+                                                 string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona,
+                                                 string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento,
+                                                 string tramaGrupoLista)
+        {
+            DataSet dsEnvioTransaccion = new DataSet();
+            try
+            {
+                dsEnvioTransaccion = EnvioTransaccion(tramaIdentidad, tramaPrimerNombre, tramaSegundoNombre,
+                                                      tramaPrimerApellido, tramaSegundoApellido, tramaTipoPersona,
+                                                      tramaNacionalidad, tramaRazonSocial, tramaFechaNacimiento,
+                                                      tramaGrupoLista);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error($"Error sendTransactionOC.\n{ex.Message}\n{ex.Source}\n{ex.StackTrace}");
+            }
+
+            clientBlackList rBlackList = new clientBlackList();
+
+            if (dsEnvioTransaccion.Tables["dtErrores"].Rows.Count > 0)
+            {
+                rBlackList.errores.codigo = dsEnvioTransaccion.Tables["dtErrores"].Rows[0]["Codigo"].ToString();
+                rBlackList.errores.descripcion = dsEnvioTransaccion.Tables["dtErrores"].Rows[0]["Descripcion"].ToString();
+            }
+            if (dsEnvioTransaccion.Tables["dtListaNegra"].Rows.Count > 0)
+            {
+                rBlackList.Respuesta = dsEnvioTransaccion.Tables["dtListaNegra"].Rows[0]["Respuesta"].ToString();
+            }
+
+            Logger.Info($"sendTransactionOC - Se retorno:\n{rBlackList.toString()}");
+            return rBlackList;
+        }
+
+        private DataSet EnvioTransaccion(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre,
+                                         string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona,
+                                         string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento,
+                                         string tramaGrupoLista)
+        {
+            DataSet dsRespuesta = new DataSet("dsRespuesta");
+
+            DataTable dtErrores = new DataTable("dtErrores");
+            dtErrores.Columns.Add(new DataColumn("Codigo", typeof(string)));
+            dtErrores.Columns.Add(new DataColumn("Descripcion", typeof(string)));
+
+            DataTable dtListaNegra = new DataTable("dtListaNegra");
+            dtListaNegra.Columns.Add(new DataColumn("Identidad", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Nombre", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Respuesta", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("NombreCoincidencia", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Porcentaje", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Lista", typeof(string)));
+
+            string RealTime = string.Empty;
+            string Evento = string.Empty;
+            string Usuario = string.Empty;
+
+            // --- Configuraciones desde BD ---
+            SQLSrv qConfiguracionesBD = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_GetConfiguraciones");
+            qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 3));
+            Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 3");
+            DataTable dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+            if (!qConfiguracionesBD.Success) Logger.Error($"No se pudo guardar LogSQL:\n{qConfiguracionesBD.Mensaje}");
+            else if (dtLogConfDT.Rows.Count > 0) RealTime = dtLogConfDT.Rows[0][0].ToString();
+
+            qConfiguracionesBD.Parametros.Clear();
+            qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 4));
+            Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 4");
+            dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+            if (!qConfiguracionesBD.Success) Logger.Error($"No se pudo guardar LogSQL:\n{qConfiguracionesBD.Mensaje}");
+            else if (dtLogConfDT.Rows.Count > 0) Evento = dtLogConfDT.Rows[0][0].ToString();
+
+            string pass = string.Empty;
+            bool superoValidaciones = true;
+
+            // --- Validación de headers ---
+            if (Properties.Settings.Default.ValidaUSREnvioTrama)
+            {
+                try
+                {
+                    HttpContext context = HttpContext.Current;
+                    Usuario = context.Request.Headers["username"].ToString();
+                    pass = context.Request.Headers["pass"].ToString();
+                }
+                catch (Exception ex)
+                {
+                    superoValidaciones = false;
+                    dtErrores.Rows.Add("E016", $"No se encontraron credenciales en el Header.\n{ex.Message}\n{ex.StackTrace}");
+                }
+            }
+
+            if (!CredencialesValidas(Usuario, pass))
+            {
+                dtErrores.Rows.Add("E000", "Credenciales de no validas!");
+                superoValidaciones = false;
+            }
+
+            // --- Validaciones de datos ---
+            superoValidaciones &= ValidarDatos(dtErrores, tramaTipoPersona, tramaPrimerNombre, tramaPrimerApellido,
+                                              tramaRazonSocial, tramaFechaNacimiento, tramaGrupoLista);
+
+            // --- Envío de trama ---
+            if (superoValidaciones)
+            {
+                DateTime FechaActual = DateTime.Now;
+                string tramaFechaEvaluacion = FechaActual.ToString("yyyyMMdd");
+
+                // Ajuste de nombres para persona jurídica
+                string primerNombre = tramaPrimerNombre;
+                string segundoNombre = tramaSegundoNombre;
+                string primerApellido = tramaPrimerApellido;
+                string segundoApellido = tramaSegundoApellido;
+
+                if (tramaTipoPersona.ToUpper() == "J")
+                {
+                    primerNombre = tramaRazonSocial;
+                    segundoNombre = string.Empty;
+                    primerApellido = string.Empty;
+                    segundoApellido = string.Empty;
+                }
+
+                string tramaEnviar =
+                    RealTime.ToUpper()
+                    + FechaActual.Day.ToString().PadLeft(2, '0')
+                    + FechaActual.Month.ToString().PadLeft(2, '0')
+                    + FechaActual.Year.ToString().PadLeft(4, '0')
+                    + FechaActual.Hour.ToString().PadLeft(2, '0')
+                    + FechaActual.Minute.ToString().PadLeft(2, '0')
+                    + Evento.ToString().PadLeft(5, '0')
+                    + Usuario.PadRight(10, ' ').ToUpper()
+                    + tramaIdentidad.PadRight(18, ' ')
+                    + primerNombre.PadRight(50, ' ')
+                    + segundoNombre.PadRight(50, ' ')
+                    + primerApellido.PadRight(50, ' ')
+                    + segundoApellido.PadRight(50, ' ')
+                    + tramaTipoPersona.ToUpper()
+                    + tramaFechaEvaluacion
+                    + tramaNacionalidad.PadRight(20, ' ')
+                    + tramaRazonSocial.PadRight(200, ' ').ToUpper()
+                    + tramaFechaNacimiento
+                    + tramaGrupoLista.PadLeft(2, '0')
+                    + "".PadRight(47, ' ');
+
+                tramaEnviar = tramaEnviar.ToUpper();
+                Logger.Info($"EnvioTransaccion - Trama enviada a RecibeInt: '{tramaEnviar}'");
+
+                // --- Consumo WS externo ---
+                string respListaNegras = string.Empty;
+                try
+                {
+                    SQLSrv qLogBD = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_RevisarLogEnvioRepuesta");
+                    qLogBD.Parametros.Add(new SqlParameter("@TramaEnviada", tramaEnviar));
+                    Logger.Error($"Ejecutando usp_RevisarLogEnvioRepuesta @TramaEnviada: {tramaEnviar}");
+                    DataTable dtogDT = qLogBD.getDataTableWithParameters();
+
+                    if (!qLogBD.Success) Logger.Error($"Error Ejecutando usp_RevisarLogEnvioRepuesta @TramaEnviada: {tramaEnviar}");
+                    else if (dtogDT.Rows.Count > 0) respListaNegras = dtogDT.Rows[0][0].ToString();
+
+                    if (dtogDT.Rows.Count <= 0)
+                    {
+                        if (!Properties.Settings.Default.UsarRespuestaAutomatica)
+                        {
+                            ServicePointManager.SecurityProtocol =
+                                SecurityProtocolType.Tls | SecurityProtocolType.Tls11 | SecurityProtocolType.Tls12;
+
+                            ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
+
+                            respListaNegras = wsListasNegras.SendTransaction(tramaEnviar);
+                        }
+                        else
+                        {
+                            respListaNegras =
+                                "01019995014313".PadLeft(18, ' ') //identidad
+                                + "IGLESIA DE LOS HERMANOS".PadLeft(200, ' ') //Nombre
+                                + "F" //Respuesta
+                                + "IGLESIA DE LOS HERMANOS".PadLeft(200, ' ') //NombreCoincidencia
+                                + "89.54".PadRight(10, ' ') //Porcentaje
+                                + "OFAC".PadLeft(50, ' '); //Lista
+                        }
+
+                        SQLSrv qLog = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_LogEnvioRespuesta");
+                        qLog.Parametros.Add(new SqlParameter("@UserName", Usuario));
+                        qLog.Parametros.Add(new SqlParameter("@TramaEnviada", tramaEnviar));
+                        qLog.Parametros.Add(new SqlParameter("@Respuesta", respListaNegras));
+
+                        Logger.Error($"Ejecutando usp_LogEnvioRespuesta: \nUserName: {Usuario}\nTramaEnviada: '{tramaEnviar}'\nTramaRespuesta: '{respListaNegras}'");
+                        DataTable dtLog = qLog.getDataTableWithParameters();
+                        if (!qLog.Success) Logger.Error($"No se pudo guardar LogSQL:\n{qLog.Mensaje}");
+                        else if (dtLog.Rows.Count > 0) respListaNegras = dtLog.Rows[0][0].ToString();
+                    }
+
+                    // --- Parse respuesta ---
+                    if (respListaNegras == null)
+                        dtErrores.Rows.Add("E020", $"No se obtuvo respuesta de RecibeInt de MonitorPlus.");
+                    else if (respListaNegras.Contains("Enqueue"))
+                        dtErrores.Rows.Add("E001", "Encolamiento exitoso.");
+                    else if (respListaNegras.Contains("Failed to Enqueue"))
+                        dtErrores.Rows.Add("E002", "Encolamiento no exitoso. Esto puede deberse por errores de autorización a las colas MS - Queuing.");
+                    else if (respListaNegras.Contains("Transaction error"))
+                        dtErrores.Rows.Add("E003", "Error de transacción, verifique los campos de fecha en el encabezado, usuario en el encabezado o longitud de la transacción.");
+                    else if (respListaNegras.Contains("Event not Found"))
+                        dtErrores.Rows.Add("E004", "No se encontrará el evento parametrizado dentro de Monitor Plus®");
+                    else if (respListaNegras.Contains("Event not Found in trx"))
+                        dtErrores.Rows.Add("E005", "El evento no se encuentre en el mensaje posteado");
+                    else if (respListaNegras.Length != 479)
+                        dtErrores.Rows.Add("E018", $"Ancho ({respListaNegras.Length}) de Trama de Respuesta no esperado.\nRespuesta Recibida: {respListaNegras}");
+                    else
+                        dtListaNegra.Rows.Add(1, tramaRazonSocial, respListaNegras.Substring(218, 1).Trim(), 
+                                            respListaNegras.Substring(219, 200).Trim(), respListaNegras.Substring(419, 10).Trim(),
+                                            respListaNegras.Substring(429, 50).Trim());
+
+                }
+                catch (Exception ex1)
+                {
+                    Logger.Error($"EnvioTransaccion - Error General:\n{ex1.Message}");
+                    dtErrores.Rows.Add("E017", $"Error General - {ex1.Message}");
+                }
+            }
+
+            dsRespuesta.Tables.Add(dtErrores);
+            dsRespuesta.Tables.Add(dtListaNegra);
+
+            return dsRespuesta;
+        }
+
+        // ----------------- Validaciones reutilizables -----------------
+        private bool ValidarDatos(DataTable dtErrores, string tipoPersona, string primerNombre, string primerApellido,
+                                  string razonSocial, string fechaNacimiento, string grupoLista)
+        {
+            bool valido = true;
+
+            if (tipoPersona.ToUpper() != "N" && tipoPersona.ToUpper() != "J")
+            {
+                dtErrores.Rows.Add("E009", "Parametro tramaTipoPersona solo puede ser N o J.");
+                valido = false;
+            }
+
+            if (tipoPersona.ToUpper() == "N")
+            {
+                valido &= ValidarLongitud(dtErrores, primerNombre, 50, "tramaPrimerNombre", "E008");
+                valido &= ValidarLongitud(dtErrores, primerApellido, 50, "tramaPrimerApellido", "E008");
+            }
+            else if (tipoPersona.ToUpper() == "J")
+            {
+                valido &= ValidarLongitud(dtErrores, razonSocial, 200, "tramaRazonSocial", "E011");
+            }
+
+            valido &= ValidarFecha(dtErrores, fechaNacimiento, "tramaFechaNacimiento", "E013");
+            valido &= ValidarGrupo(dtErrores, grupoLista);
+
+            return valido;
+        }
+
+        private bool ValidarLongitud(DataTable dtErrores, string valor, int longitudMax, string nombreCampo, string codigoError)
+        {
+            if (!string.IsNullOrEmpty(valor) && valor.Length > longitudMax)
+            {
+                dtErrores.Rows.Add(codigoError, $"Parametro {nombreCampo} solo puede tener {longitudMax} caracteres.");
+                return false;
+            }
+            return true;
+        }
+
+        private bool ValidarFecha(DataTable dtErrores, string fecha, string nombreCampo, string codigoError)
+        {
+            bool fechaValida = true;
+            try
+            {
+                DateTime.ParseExact(fecha, "yyyyMMdd", CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+                dtErrores.Rows.Add(codigoError, $"Parametro {nombreCampo} no tiene un formato valido.");
+                fechaValida = false;
+            }
+            return fechaValida;
+        }
+
+        private bool ValidarGrupo(DataTable dtErrores, string grupo)
+        {
+            bool valido = false;
+            SQLSrv qValidaGrupo = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_ValidarGrupo");
+            qValidaGrupo.Parametros.Add(new SqlParameter("@Grupo", grupo));
+            DataTable dtValidaGrupo = qValidaGrupo.getDataTableWithParameters();
+
+            if (qValidaGrupo.Success && dtValidaGrupo.Rows[0][0].ToString() == "1")
+                valido = true;
+            else
+                dtErrores.Rows.Add("E015", "Parametro tramaGrupo no tiene un valor valido.");
+
+            return valido;
+        }
+
+        private bool CredencialesValidas(string usuario, string pass)
+        {
+            if (!Properties.Settings.Default.ValidaUSREnvioTrama) return true;
+
+            string passDescriptadoH = Seguridad.DesEncriptar(pass);
+            string passDescriptado = string.Empty;
+
+            SQLSrv qUsuarios = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_MantUsuarios");
+            qUsuarios.Parametros.Add(new SqlParameter("@opcion", 2));
+            qUsuarios.Parametros.Add(new SqlParameter("@UserName", usuario));
+
+            DataTable dtUsuario = qUsuarios.getDataTableWithParameters();
+            if (qUsuarios.Success && dtUsuario.Rows.Count > 0)
+                passDescriptado = Seguridad.DesEncriptar(dtUsuario.Rows[0][0].ToString());
+
+            if (passDescriptado == passDescriptadoH) return true;
+
+            Logger.Error($"Error validando usuario: {usuario}\nError: {qUsuarios.Mensaje}");
+            return false;
+        }
+    }
+}
