@@ -1,0 +1,609 @@
+Hay un error de logica porque .. cuando yo intento probar con SOAP me tira esto, yh ademas se tarda demasiado en responder:
+
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+   <soap:Body>
+      <sendTransactionDSResponse xmlns="http://wslistasnegras.banpais.hn/">
+         <sendTransactionDSResult>
+            <xs:schema id="dsRespuesta" xmlns="" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+               <xs:element name="dsRespuesta" msdata:IsDataSet="true" msdata:UseCurrentLocale="true">
+                  <xs:complexType>
+                     <xs:choice minOccurs="0" maxOccurs="unbounded">
+                        <xs:element name="dtErrores">
+                           <xs:complexType>
+                              <xs:sequence>
+                                 <xs:element name="Codigo" type="xs:string" minOccurs="0"/>
+                                 <xs:element name="Descripcion" type="xs:string" minOccurs="0"/>
+                              </xs:sequence>
+                           </xs:complexType>
+                        </xs:element>
+                        <xs:element name="dtListaNegra">
+                           <xs:complexType>
+                              <xs:sequence>
+                                 <xs:element name="Identidad" type="xs:string" minOccurs="0"/>
+                                 <xs:element name="Nombre" type="xs:string" minOccurs="0"/>
+                                 <xs:element name="Respuesta" type="xs:string" minOccurs="0"/>
+                                 <xs:element name="NombreCoincidencia" type="xs:string" minOccurs="0"/>
+                                 <xs:element name="Porcentaje" type="xs:string" minOccurs="0"/>
+                                 <xs:element name="Lista" type="xs:string" minOccurs="0"/>
+                              </xs:sequence>
+                           </xs:complexType>
+                        </xs:element>
+                     </xs:choice>
+                  </xs:complexType>
+               </xs:element>
+            </xs:schema>
+            <diffgr:diffgram xmlns:msdata="urn:schemas-microsoft-com:xml-msdata" xmlns:diffgr="urn:schemas-microsoft-com:xml-diffgram-v1">
+               <dsRespuesta xmlns="">
+                  <dtErrores diffgr:id="dtErrores1" msdata:rowOrder="0" diffgr:hasChanges="inserted">
+                     <Codigo>E006</Codigo>
+                     <Descripcion>Parametro RealTime solo puede ser S o N.</Descripcion>
+                  </dtErrores>
+                  <dtErrores diffgr:id="dtErrores2" msdata:rowOrder="1" diffgr:hasChanges="inserted">
+                     <Codigo>E015</Codigo>
+                     <Descripcion>Parametro tramaGrupo no tiene un valor valido.</Descripcion>
+                  </dtErrores>
+               </dsRespuesta>
+            </diffgr:diffgram>
+         </sendTransactionDSResult>
+      </sendTransactionDSResponse>
+   </soap:Body>
+</soap:Envelope>
+
+
+
+
+
+Cuando yo se que lo que le envipe esta bien,
+<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:wsl="http://wslistasnegras.banpais.hn/">
+   <soap:Header/>
+   <soap:Body>
+      <wsl:sendTransactionDS>
+         <!--Optional:-->
+         <wsl:tramaIdentidad>0506200201776</wsl:tramaIdentidad>
+         <!--Optional:-->
+         <wsl:tramaPrimerNombre>PAMELA</wsl:tramaPrimerNombre>
+         <!--Optional:-->
+         <wsl:tramaSegundoNombre>NICOLE</wsl:tramaSegundoNombre>
+         <!--Optional:-->
+         <wsl:tramaPrimerApellido>SUAZO</wsl:tramaPrimerApellido>
+         <!--Optional:-->
+         <wsl:tramaSegundoApellido>SOTO</wsl:tramaSegundoApellido>
+         <!--Optional:-->
+         <wsl:tramaTipoPersona>N</wsl:tramaTipoPersona>
+         <!--Optional:-->
+         <wsl:tramaNacionalidad>HONDUREÑA</wsl:tramaNacionalidad>
+         <!--Optional:-->
+         <wsl:tramaRazonSocial></wsl:tramaRazonSocial>
+         <!--Optional:-->
+         <wsl:tramaFechaNacimiento>20020328</wsl:tramaFechaNacimiento>
+         <!--Optional:-->
+         <wsl:tramaGrupoLista>09</wsl:tramaGrupoLista>
+      </wsl:sendTransactionDS>
+   </soap:Body>
+</soap:Envelope>
+
+
+
+
+Asi deje el metodo envio transaccion 
+
+
+
+        private DataSet EnvioTransaccion(string tramaIdentidad, string tramaPrimerNombre, string tramaSegundoNombre, string tramaPrimerApellido, string tramaSegundoApellido, string tramaTipoPersona, string tramaNacionalidad, string tramaRazonSocial, string tramaFechaNacimiento, string tramaGrupoLista)
+        {
+            DataSet dsRespuesta = new DataSet("dsRespuesta");
+
+            DataTable dtErrores = new DataTable("dtErrores");
+            dtErrores.Columns.Add(new DataColumn("Codigo", typeof(string)));
+            dtErrores.Columns.Add(new DataColumn("Descripcion", typeof(string)));
+
+            DataTable dtListaNegra = new DataTable("dtListaNegra");
+            dtListaNegra.Columns.Add(new DataColumn("Identidad", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Nombre", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Respuesta", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("NombreCoincidencia", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Porcentaje", typeof(string)));
+            dtListaNegra.Columns.Add(new DataColumn("Lista", typeof(string)));
+
+            string RealTime = string.Empty;
+            string Evento = string.Empty;
+            string Usuario = string.Empty;
+
+            SQLSrv qConfiguracionesBD = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_GetConfiguraciones");
+            qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 3));
+
+            Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 3");
+
+            DataTable dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+
+            if (!qConfiguracionesBD.Success)
+                Logger.Error($"No se pudo guardar LogSQL:\n{qConfiguracionesBD.Mensaje}");
+            else
+            {
+                if (dtLogConfDT.Rows.Count > 0)
+                    RealTime = dtLogConfDT.Rows[0][0].ToString();
+            }
+
+            qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 4));
+
+            Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 4");
+
+            dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+            if (!qConfiguracionesBD.Success)
+                Logger.Error($"No se pudo guardar LogSQL:\n{qConfiguracionesBD.Mensaje}");
+            else
+            {
+                if (dtLogConfDT.Rows.Count > 0)
+                    Evento = dtLogConfDT.Rows[0][0].ToString();
+            }
+
+            string usuario = string.Empty;
+            string pass = string.Empty;
+            bool superoValidaciones = true;
+
+            if (Properties.Settings.Default.ValidaUSREnvioTrama)
+            {
+                try
+                {
+                    HttpContext context = HttpContext.Current;
+                    usuario = context.Request.Headers["username"].ToString();
+                    Usuario = usuario;
+                    pass = context.Request.Headers["pass"].ToString();
+                }
+                catch (Exception ex)
+                {
+                    superoValidaciones = false;
+
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E016";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"No se encontraron credenciales en el Header.\n{ex.Message}\n{ex.StackTrace}";
+                }
+            }
+
+            //Validando usuario y contraseña del Header
+            if (!CredencialesValidas(usuario, pass))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E000";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Credenciales de no validas!";
+            }
+            else
+            {
+
+                //Validaciones
+                if (RealTime.ToUpper() != "S" && RealTime.ToUpper() != "N")
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E006";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro RealTime solo puede ser S o N.";
+                    superoValidaciones = false;
+                }
+
+                if (Evento.ToString().Length > 5)
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E007";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro Evento solo puede ser de 5 digitos.";
+                    superoValidaciones = false;
+                }
+
+
+                // Normalizar nulls (evitar NRE)
+                tramaIdentidad = tramaIdentidad ?? string.Empty;
+                tramaPrimerNombre = tramaPrimerNombre ?? string.Empty;
+                tramaSegundoNombre = tramaSegundoNombre ?? string.Empty;
+                tramaPrimerApellido = tramaPrimerApellido ?? string.Empty;
+                tramaSegundoApellido = tramaSegundoApellido ?? string.Empty;
+                tramaTipoPersona = (tramaTipoPersona ?? string.Empty).Trim().ToUpper();
+                tramaNacionalidad = tramaNacionalidad ?? string.Empty;
+                tramaRazonSocial = tramaRazonSocial ?? string.Empty;
+                tramaFechaNacimiento = tramaFechaNacimiento ?? string.Empty;
+                tramaGrupoLista = tramaGrupoLista ?? string.Empty;
+
+                // Validaciones globales (siempre obligatorias)
+                if (string.IsNullOrWhiteSpace(tramaIdentidad))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E001";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo Identidad no puede estar vacío.";
+                    superoValidaciones = false;
+                }
+                if (string.IsNullOrWhiteSpace(tramaTipoPersona))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E001";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Tipo Persona' no puede estar vacío.";
+                    superoValidaciones = false;
+                }
+
+                if (string.IsNullOrWhiteSpace(tramaNacionalidad))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E002";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Nacionalidad' no puede estar vacío.";
+                    superoValidaciones = false;
+                }
+
+                if (string.IsNullOrWhiteSpace(tramaFechaNacimiento))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E003";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Fecha de Nacimiento' no puede estar vacío.";
+                    superoValidaciones = false;
+                }
+
+                if (string.IsNullOrWhiteSpace(tramaGrupoLista))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E004";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Grupo Lista' no puede estar vacío.";
+                    superoValidaciones = false;
+                }
+
+                // Validaciones específicas por tipo de persona
+                if (tramaTipoPersona == "N") // Persona Natural: campos de nombres/apellidos obligatorios
+                {
+                    if (string.IsNullOrWhiteSpace(tramaPrimerNombre))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E026";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Nombre' es obligatorio para personas naturales.";
+                        superoValidaciones = false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(tramaSegundoNombre))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E027";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Nombre' es obligatorio para personas naturales.";
+                        superoValidaciones = false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(tramaPrimerApellido))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E028";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Apellido' es obligatorio para personas naturales.";
+                        superoValidaciones = false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(tramaSegundoApellido))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E029";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Apellido' es obligatorio para personas naturales.";
+                        superoValidaciones = false;
+                    }
+                }
+
+                else if (tramaTipoPersona == "J") // Persona Jurídica: campos de nombre/apellido deben estar VACÍOS; razonSocial obligatorio
+                {
+                    if (!string.IsNullOrWhiteSpace(tramaPrimerNombre))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E021";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Nombre' debe estar vacío para personas jurídicas.";
+                        superoValidaciones = false;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(tramaSegundoNombre))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E022";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Nombre' debe estar vacío para personas jurídicas.";
+                        superoValidaciones = false;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(tramaPrimerApellido))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E023";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Apellido' debe estar vacío para personas jurídicas.";
+                        superoValidaciones = false;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(tramaSegundoApellido))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E024";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Apellido' debe estar vacío para personas jurídicas.";
+                        superoValidaciones = false;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(tramaRazonSocial))
+                    {
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E025";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Razón Social' es obligatorio para personas jurídicas.";
+                        superoValidaciones = false;
+                    }
+                }
+
+
+                if (tramaIdentidad.Length > 18)
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E008";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaIdentidad no puede ser mas de 18 caracteres.";
+                    superoValidaciones = false;
+                }
+
+                if (tramaTipoPersona.ToUpper() != "N" && tramaTipoPersona.ToUpper() != "J")
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E009";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaTipoPersona solo puede ser N o J.";
+                    superoValidaciones = false;
+                }
+
+                if (tramaNacionalidad.Length > 20)
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E010";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaNacionalidad solo puede ser de 20 caracteres.";
+                    superoValidaciones = false;
+                }
+
+                if (tramaRazonSocial.Length > 200)
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E011";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaRazonSocial solo puede ser de 200 caracteres.";
+                    superoValidaciones = false;
+                }
+
+                if (tramaFechaNacimiento.Length != 8)
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E012";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaFechaNacimiento solo puede ser de 8 caracteres.";
+                    superoValidaciones = false;
+                }
+
+                if (!ValidaFecha(tramaFechaNacimiento))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E013";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaFechaNacimiento no tiene un formato valido.";
+                    superoValidaciones = false;
+                }
+
+                if (tramaGrupoLista.Length > 2)
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E014";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaGrupoLista solo puede ser de 2 caracteres.";
+                    superoValidaciones = false;
+                }
+
+                if (!ValidaGrupo(tramaGrupoLista))
+                {
+                    dtErrores.Rows.Add(1);
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E015";
+                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Parametro tramaGrupo no tiene un valor valido.";
+                    superoValidaciones = false;
+                }
+
+                if (superoValidaciones)
+                {
+                    DateTime FechaActual = System.DateTime.Now;
+                    string tramaFechaEvaluacion = FechaActual.ToString("yyyyMMdd");
+
+
+
+                    // 🔹 INICIO CAMBIO: Si persona juridica y flag activo, copiar razon social a primer nombre (solo para la trama enviada)
+         
+
+                        if (Properties.Settings.Default.CopiarRazonSocialAPrimerNombre == true && tramaTipoPersona.ToUpper() == "J")
+                    {
+                        // Solo copiamos si primer nombre está vacío (para no sobreescribir info que el consumidor haya colocado)
+                        if (string.IsNullOrWhiteSpace(tramaPrimerNombre) && !string.IsNullOrWhiteSpace(tramaRazonSocial))
+                        {
+                            tramaPrimerNombre = tramaRazonSocial;
+                            Logger.Info("Copia temporal: tramaRazonSocial copiada a tramaPrimerNombre debido a COPIAR_RAZON_SOCIAL flag = true.");
+                        }
+                    }
+
+
+                    //Arma trama a Enviar en metodo SendTransaction
+                    string tramaEnviar =
+                        RealTime.ToUpper()
+                        + FechaActual.Day.ToString().PadLeft(2, '0')
+                        + FechaActual.Month.ToString().PadLeft(2, '0')
+                        + FechaActual.Year.ToString().PadLeft(4, '0')
+                        + FechaActual.Hour.ToString().PadLeft(2, '0')
+                        + FechaActual.Minute.ToString().PadLeft(2, '0')
+                        + Evento.ToString().PadLeft(5, '0')
+                        + Usuario.PadRight(10, ' ').ToUpper()
+                        + tramaIdentidad.PadRight(18, ' ')
+                        + tramaPrimerNombre.PadRight(50, ' ')
+                        + tramaSegundoNombre.PadRight(50, ' ')
+                        + tramaPrimerApellido.PadRight(50, ' ')
+                        + tramaSegundoApellido.PadRight(50, ' ')
+                        + tramaTipoPersona.ToUpper()
+                        + tramaFechaEvaluacion
+                        + tramaNacionalidad.PadRight(20, ' ')
+                        + tramaRazonSocial.PadRight(200, ' ').ToUpper()
+                        + tramaFechaNacimiento
+                        + tramaGrupoLista.PadLeft(2, '0')
+                        + "".PadRight(47, ' ');
+
+                    tramaEnviar = tramaEnviar.ToUpper();
+
+                    Logger.Info($"EnvioTransaccion - Trama enviada a RecibeInt: '{tramaEnviar}'");
+
+                    //Consumir web service
+                    string respListaNegras = string.Empty;
+
+                    try
+                    {
+                        //Se revisa si ya se consulto anteriormente este trama y si esta en la bd
+
+                        SQLSrv qLogBD = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_RevisarLogEnvioRepuesta");
+                        qLogBD.Parametros.Add(new SqlParameter("@TramaEnviada", tramaEnviar));
+
+                        Logger.Error($"Ejecutando usp_RevisarLogEnvioRepuesta @TramaEnviada: {tramaEnviar}");
+
+                        DataTable dtogDT = qLogBD.getDataTableWithParameters();
+
+                        if(!qLogBD.Success)
+                        {
+                            Logger.Error($"Error Ejecutando usp_RevisarLogEnvioRepuesta @TramaEnviada: {tramaEnviar}");
+                        }
+                        else
+                        {
+                            if(dtogDT.Rows.Count>0)
+                                respListaNegras = dtogDT.Rows[0][0].ToString();
+                        }                     
+
+
+                        if (dtogDT.Rows.Count <= 0)
+                        {
+                            if (Properties.Settings.Default.UsarRespuestaAutomatica == false)
+                            {
+                                try
+                                {
+                                    ServicePointManager.SecurityProtocol =
+                                    SecurityProtocolType.Tls |           // TLS 1.0
+                                    SecurityProtocolType.Tls11 |         // TLS 1.1
+                                    SecurityProtocolType.Tls12;         // TLS 1.2
+
+                                    // Ignorar la validación del certificado (solo para desarrollo)
+                                    ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
+
+                                    respListaNegras = wsListasNegras.SendTransaction(tramaEnviar);
+                                }
+                                catch (Exception ws)
+                                {
+                                    Logger.Error($"Error consumiendoRecibeInt:\n{ws.Message}\n{ws.StackTrace}");
+
+                                    dtErrores.Rows.Add(1);
+                                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E019";
+                                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Error consumiendo RecibeInt:\n{ws.Message}\n{ws.StackTrace}";
+                                }
+                            }
+                            else
+                            {
+                                //Ejemplo de trama de respuesta.
+                                respListaNegras =
+                                "01019995014313".PadLeft(18, ' ') //identidad
+                                + "IGLESIA DE LOS HERMANOS".PadLeft(200, ' ') //Nombre
+                                + "F" //Respuesta
+                                + "IGLESIA DE LOS HERMANOS".PadLeft(200, ' ') //NombreCoincidencia
+                                + "89.54".PadRight(10, ' ') //Porcentaje
+                                + "OFAC".PadLeft(50, ' '); //Lista
+                            }
+
+                            //Guarda LogSQL 
+                            SQLSrv qLog = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_LogEnvioRespuesta");
+                            qLog.Parametros.Add(new SqlParameter("@UserName", usuario));
+                            qLog.Parametros.Add(new SqlParameter("@TramaEnviada", tramaEnviar));
+                            qLog.Parametros.Add(new SqlParameter("@Respuesta", respListaNegras));
+
+                            Logger.Error($"Ejecutando usp_LogEnvioRespuesta: \nUserName: {usuario}\nTramaEnviada: '{tramaEnviar}'\nTramaRespuesta: '{respListaNegras}'");
+
+                            DataTable dtLog = qLog.getDataTableWithParameters();
+
+
+                            if (!qLog.Success)
+                                Logger.Error($"No se pudo guardar LogSQL:\n{qLog.Mensaje}");
+                            else
+                            {
+                                if (dtLog.Rows.Count > 0)
+                                    respListaNegras = dtLog.Rows[0][0].ToString();
+                            }
+                        }                    
+
+                        /* 
+
+                        El cliente web que consume el web services puede esperar las siguientes respuestas por parte del servicio RecibeInt:
+                        1.Encolamiento exitoso: Enqueue.
+                        2.Encolamiento no exitoso: Failed to Enqueue.Esto puede deberse por errores de autorización a las colas MS - Queuing.
+                        3.En caso la trama no sea correcta: Transaction error, check the date fields in the header, user in the header or length transaction.
+                        4.En caso no se encontrará el evento parametrizado dentro de Monitor Plus®: Event not Found.
+                        5.En caso el evento no se encuentre en el mensaje posteado: Event not Found in trx.
+
+                        */
+
+                        if (respListaNegras == null)
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E020";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"No se obtuvo respuesta de RecibeInt de MonitorPlus.";
+                        }
+                        else if (respListaNegras.Contains("Enqueue"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E001";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Encolamiento exitoso.";
+                        }
+                        else if (respListaNegras.Contains("Failed to Enqueue"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E002";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Encolamiento no exitoso. Esto puede deberse por errores de autorización a las colas MS - Queuing.";
+                        }
+                        else if (respListaNegras.Contains("Transaction error"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E003";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Error de transacción, verifique los campos de fecha en el encabezado, usuario en el encabezado o longitud de la transacción.";
+                        }
+                        else if (respListaNegras.Contains("Event not Found"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E004";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "No se encontrará el evento parametrizado dentro de Monitor Plus®";
+                        }
+                        else if (respListaNegras.Contains("Event not Found in trx"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E005";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El evento no se encuentre en el mensaje posteado";
+                        }
+                        else if (respListaNegras.Length != 479)
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E018";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Ancho ({respListaNegras.Length.ToString()}) de Trama de Respuesta no esperado.\nRespuesta Recibida: {respListaNegras}";
+                        }
+                        else
+                        {
+                            //Identidad     Longitud    18      1,18
+                            string respIdentidad = respListaNegras.Substring(0, 18).Trim();
+                            //Nombre        Longitud    100     19,100
+                            string respNombre = respListaNegras.Substring(18, 200).Trim();
+                            //Respuesta     Longitud    1       120,1
+                            string respRespuesta = respListaNegras.Substring(218, 1).Trim();
+                            //NombreCoincidencia    Longitud    150     123,150
+                            string respNombreCoincidencia = respListaNegras.Substring(219, 200).Trim();
+                            //Porcentaje    Longitud    10      273,10
+                            string respPorcentaje = respListaNegras.Substring(419, 10).Trim();
+                            //Lista         Longitud    50      283,50
+                            string respLista = respListaNegras.Substring(429, 50).Trim()    ;
+
+
+                            //Agrega a dtListaNegra la respuesta recibida
+                            dtListaNegra.Rows.Add(1);
+                            dtListaNegra.Rows[dtListaNegra.Rows.Count - 1]["Respuesta"] = respRespuesta;
+                        }
+                    }
+                    catch (Exception ex1)
+                    {
+                        Logger.Error($"EnvioTransaccion - Error General:\n{ex1.Message}");
+
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E017";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Error General - {ex1.Message}";
+                    }
+                }
+            }
+
+            //Agrega tablas al dataset de respuesta
+            dsRespuesta.Tables.Add(dtErrores);
+            dsRespuesta.Tables.Add(dtListaNegra);
+
+            return dsRespuesta;
+        }
+
+
