@@ -1,0 +1,18 @@
+else
+{
+    try
+    {
+        // 🔹 Llamada al proveedor simulado (mock)
+        respListaNegras = wsListasNegras.Mock.ProveedorSimulado.SendTransaction(tramaEnviar);
+
+        Logger.Info("⚙️ [Simulación Activa] Llamada al proveedor simulado ejecutada correctamente.");
+    }
+    catch (Exception ex)
+    {
+        Logger.Error($"Error en proveedor simulado:\n{ex.Message}\n{ex.StackTrace}");
+
+        dtErrores.Rows.Add(1);
+        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E020";
+        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Error en proveedor simulado:\n{ex.Message}";
+    }
+}
