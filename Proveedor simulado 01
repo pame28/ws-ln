@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+namespace wsListasNegras.Mock
+{
+    public static class ProveedorSimulado
+    {
+        // "Base de datos" simulada
+        private static readonly List<PersonaSimulada> Personas = new List<PersonaSimulada>
+        {
+            new PersonaSimulada
+            {
+                Identidad = "08011999001234",
+                TipoPersona = "N",
+                PrimerNombre = "JUAN",
+                SegundoNombre = "CARLOS",
+                PrimerApellido = "PEREZ",
+                SegundoApellido = "HERNANDEZ",
+                RazonSocial = "",
+                Respuesta = "V",
+                NombreCoincidencia = "JUAN PEREZ",
+                Porcentaje = "98.25",
+                Lista = "LISTA OFAC"
+            },
+            new PersonaSimulada
+            {
+                Identidad = "08012000004567",
+                TipoPersona = "J",
+                PrimerNombre = "",
+                SegundoNombre = "",
+                PrimerApellido = "",
+                SegundoApellido = "",
+                RazonSocial = "EMPRESA DEMO S.A.",
+                Respuesta = "N",
+                NombreCoincidencia = "EMPRESA DEMO",
+                Porcentaje = "00.00",
+                Lista = "NINGUNA"
+            }
+        };
+
+        // 🔹 Método que simula el consumo real al proveedor
+        public static string SendTransaction(string tramaEnviar)
+        {
+            // Se extrae parte de la trama para decidir la respuesta simulada
+            string tipoPersona = tramaEnviar.Length > 5
+                ? tramaEnviar.Substring(0, 1).ToUpper()  // Ejemplo de cómo extraer info
+                : "N";
+
+            // Podés adaptar esta lógica según tu formato de trama real
+            var persona = Personas.FirstOrDefault(p => p.TipoPersona == tipoPersona);
+
+            if (persona == null)
+            {
+                // Si no existe, se devuelve una trama genérica
+                return "000000000000000000".PadLeft(18, ' ') +
+                       "SIN DATOS".PadLeft(200, ' ') +
+                       "N" +
+                       "SIN DATOS".PadLeft(200, ' ') +
+                       "00.00".PadRight(10, ' ') +
+                       "NINGUNA".PadLeft(50, ' ');
+            }
+
+            // 🔸 Armar respuesta igual que el proveedor real
+            return persona.Identidad.PadLeft(18, ' ') +
+                   (persona.TipoPersona == "J"
+                        ? persona.RazonSocial
+                        : $"{persona.PrimerNombre} {persona.PrimerApellido}").PadLeft(200, ' ') +
+                   persona.Respuesta +
+                   persona.NombreCoincidencia.PadLeft(200, ' ') +
+                   persona.Porcentaje.PadRight(10, ' ') +
+                   persona.Lista.PadLeft(50, ' ');
+        }
+    }
+
+    // Clase auxiliar
+    public class PersonaSimulada
+    {
+        public string Identidad { get; set; }
+        public string TipoPersona { get; set; }
+        public string PrimerNombre { get; set; }
+        public string SegundoNombre { get; set; }
+        public string PrimerApellido { get; set; }
+        public string SegundoApellido { get; set; }
+        public string RazonSocial { get; set; }
+        public string Respuesta { get; set; }
+        public string NombreCoincidencia { get; set; }
+        public string Porcentaje { get; set; }
+        public string Lista { get; set; }
+    }
+}
