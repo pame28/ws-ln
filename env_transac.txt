@@ -1,0 +1,210 @@
+private DataSet EnvioTransaccion(
+    string tramaIdentidad,
+    string tramaPrimerNombre,
+    string tramaSegundoNombre,
+    string tramaPrimerApellido,
+    string tramaSegundoApellido,
+    string tramaTipoPersona,
+    string tramaNacionalidad,
+    string tramaRazonSocial,
+    string tramaFechaNacimiento,
+    string tramaGrupoLista)
+{
+    DataSet dsRespuesta = new DataSet("dsRespuesta");
+
+    DataTable dtErrores = new DataTable("dtErrores");
+    dtErrores.Columns.Add(new DataColumn("Codigo", typeof(string)));
+    dtErrores.Columns.Add(new DataColumn("Descripcion", typeof(string)));
+
+    DataTable dtListaNegra = new DataTable("dtListaNegra");
+    dtListaNegra.Columns.Add(new DataColumn("Identidad", typeof(string)));
+    dtListaNegra.Columns.Add(new DataColumn("Nombre", typeof(string)));
+    dtListaNegra.Columns.Add(new DataColumn("Respuesta", typeof(string)));
+    dtListaNegra.Columns.Add(new DataColumn("NombreCoincidencia", typeof(string)));
+    dtListaNegra.Columns.Add(new DataColumn("Porcentaje", typeof(string)));
+    dtListaNegra.Columns.Add(new DataColumn("Lista", typeof(string)));
+
+    string RealTime = string.Empty;
+    string Evento = string.Empty;
+    string Usuario = string.Empty;
+
+    SQLSrv qConfiguracionesBD = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_GetConfiguraciones");
+    qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 3));
+
+    Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 3");
+
+    DataTable dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+
+    if (!qConfiguracionesBD.Success)
+        Logger.Error($"No se pudo guardar LogSQL:\n{qConfiguracionesBD.Mensaje}");
+    else
+    {
+        if (dtLogConfDT.Rows.Count > 0)
+            RealTime = dtLogConfDT.Rows[0][0].ToString();
+    }
+
+    qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 4));
+
+    Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 4");
+
+    dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+    if (!qConfiguracionesBD.Success)
+        Logger.Error($"No se pudo guardar LogSQL:\n{qConfiguracionesBD.Mensaje}");
+    else
+    {
+        if (dtLogConfDT.Rows.Count > 0)
+            Evento = dtLogConfDT.Rows[0][0].ToString();
+    }
+
+    string usuario = string.Empty;
+    string pass = string.Empty;
+    bool superoValidaciones = true;
+
+    if (Properties.Settings.Default.ValidaUSREnvioTrama)
+    {
+        try
+        {
+            HttpContext context = HttpContext.Current;
+            usuario = context.Request.Headers["username"].ToString();
+            Usuario = usuario;
+            pass = context.Request.Headers["pass"].ToString();
+        }
+        catch (Exception ex)
+        {
+            superoValidaciones = false;
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E016";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"No se encontraron credenciales en el Header.\n{ex.Message}\n{ex.StackTrace}";
+        }
+    }
+
+    if (!CredencialesValidas(usuario, pass))
+    {
+        dtErrores.Rows.Add(1);
+        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E000";
+        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Credenciales no válidas!";
+    }
+    else
+    {
+        // 🔹 INICIO CAMBIO: Validaciones específicas y flag temporal del proveedor
+        bool copiarRazonSocialAPrimerNombre = true; // Si el proveedor lo requiere temporalmente
+
+        // Validaciones base
+        if (RealTime.ToUpper() != "S" && RealTime.ToUpper() != "N")
+        {
+            dtErrores.Rows.Add("E006", "Parametro RealTime solo puede ser S o N.");
+            superoValidaciones = false;
+        }
+
+        if (Evento.ToString().Length > 5)
+        {
+            dtErrores.Rows.Add("E007", "Parametro Evento solo puede ser de 5 dígitos.");
+            superoValidaciones = false;
+        }
+
+        // Validaciones según tipo de persona
+        if (tramaTipoPersona.ToUpper() == "N")
+        {
+            // Persona Natural
+            if (string.IsNullOrWhiteSpace(tramaPrimerNombre) || string.IsNullOrWhiteSpace(tramaPrimerApellido))
+            {
+                dtErrores.Rows.Add("E030", "Persona Natural requiere al menos primer nombre y primer apellido.");
+                superoValidaciones = false;
+            }
+        }
+        else if (tramaTipoPersona.ToUpper() == "J")
+        {
+            // Persona Jurídica
+            if (string.IsNullOrWhiteSpace(tramaRazonSocial))
+            {
+                dtErrores.Rows.Add("E031", "Persona Jurídica requiere razón social.");
+                superoValidaciones = false;
+            }
+
+            // Copia razon social a primer nombre si el proveedor lo exige
+            if (copiarRazonSocialAPrimerNombre)
+            {
+                tramaPrimerNombre = tramaRazonSocial;
+                Logger.Info("Flag activo: Copiando RazonSocial en PrimerNombre (ajuste temporal proveedor).");
+            }
+        }
+        else
+        {
+            dtErrores.Rows.Add("E009", "Parametro tramaTipoPersona solo puede ser N o J.");
+            superoValidaciones = false;
+        }
+
+        // Resto de validaciones comunes
+        if (tramaIdentidad.Length > 18)
+        {
+            dtErrores.Rows.Add("E008", "Parametro tramaIdentidad no puede ser más de 18 caracteres.");
+            superoValidaciones = false;
+        }
+
+        if (tramaNacionalidad.Length > 20)
+        {
+            dtErrores.Rows.Add("E010", "Parametro tramaNacionalidad solo puede ser de 20 caracteres.");
+            superoValidaciones = false;
+        }
+
+        if (tramaRazonSocial.Length > 200)
+        {
+            dtErrores.Rows.Add("E011", "Parametro tramaRazonSocial solo puede ser de 200 caracteres.");
+            superoValidaciones = false;
+        }
+
+        if (tramaFechaNacimiento.Length != 8 || !ValidaFecha(tramaFechaNacimiento))
+        {
+            dtErrores.Rows.Add("E013", "Parametro tramaFechaNacimiento no tiene un formato válido o longitud incorrecta (8 caracteres esperados).");
+            superoValidaciones = false;
+        }
+
+        if (tramaGrupoLista.Length > 2 || !ValidaGrupo(tramaGrupoLista))
+        {
+            dtErrores.Rows.Add("E015", "Parametro tramaGrupoLista no tiene un valor válido.");
+            superoValidaciones = false;
+        }
+        // 🔹 FIN CAMBIO
+
+        if (superoValidaciones)
+        {
+            DateTime FechaActual = System.DateTime.Now;
+            string tramaFechaEvaluacion = FechaActual.ToString("yyyyMMdd");
+
+            string tramaEnviar =
+                RealTime.ToUpper()
+                + FechaActual.Day.ToString().PadLeft(2, '0')
+                + FechaActual.Month.ToString().PadLeft(2, '0')
+                + FechaActual.Year.ToString().PadLeft(4, '0')
+                + FechaActual.Hour.ToString().PadLeft(2, '0')
+                + FechaActual.Minute.ToString().PadLeft(2, '0')
+                + Evento.ToString().PadLeft(5, '0')
+                + Usuario.PadRight(10, ' ').ToUpper()
+                + tramaIdentidad.PadRight(18, ' ')
+                + tramaPrimerNombre.PadRight(50, ' ')
+                + tramaSegundoNombre.PadRight(50, ' ')
+                + tramaPrimerApellido.PadRight(50, ' ')
+                + tramaSegundoApellido.PadRight(50, ' ')
+                + tramaTipoPersona.ToUpper()
+                + tramaFechaEvaluacion
+                + tramaNacionalidad.PadRight(20, ' ')
+                + tramaRazonSocial.PadRight(200, ' ').ToUpper()
+                + tramaFechaNacimiento
+                + tramaGrupoLista.PadLeft(2, '0')
+                + "".PadRight(47, ' ');
+
+            tramaEnviar = tramaEnviar.ToUpper();
+
+            Logger.Info($"EnvioTransaccion - Trama enviada a RecibeInt: '{tramaEnviar}'");
+
+            // 🔹 El resto del código queda igual
+            // (desde aquí continúa exactamente igual que tu versión original con los logs, consumo de servicio, y validaciones de respuesta)
+            // 🔹 FIN CAMBIO
+        }
+    }
+
+    dsRespuesta.Tables.Add(dtErrores);
+    dsRespuesta.Tables.Add(dtListaNegra);
+
+    return dsRespuesta;
+}
