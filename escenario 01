@@ -1,0 +1,23 @@
+
+    if (tramaTipoPersona.ToUpper() == "N")
+    {
+        // 🔹 Persona Natural
+        respListaNegras =
+            "08011999001234".PadLeft(18, ' ') +               // Identidad
+            "JUAN PEREZ HERNANDEZ".PadLeft(200, ' ') +       // Nombre
+            "V" +                                             // Respuesta (V = Validado)
+            "JUAN PEREZ".PadLeft(200, ' ') +                  // Nombre Coincidencia
+            "98.25".PadRight(10, ' ') +                       // Porcentaje
+            "LISTA OFAC".PadLeft(50, ' ');                    // Lista
+    }
+    else if (tramaTipoPersona.ToUpper() == "J")
+    {
+        // 🔹 Persona Jurídica
+        respListaNegras =
+            "08012000004567".PadLeft(18, ' ') +               // Identidad
+            tramaRazonSocial.PadLeft(200, ' ') +              // Nombre (usa la razón social)
+            "N" +                                             // Respuesta (N = No encontrado)
+            tramaRazonSocial.PadLeft(200, ' ') +              // Nombre Coincidencia
+            "00.00".PadRight(10, ' ') +                       // Porcentaje
+            "NINGUNA".PadLeft(50, ' ');                       // Lista
+    }
