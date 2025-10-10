@@ -1,0 +1,176 @@
+public DataTable EnvioTransaccion(
+    string usuario,
+    string pass,
+    string tramaIdentidad,
+    string tramaPrimerNombre,
+    string tramaSegundoNombre,
+    string tramaPrimerApellido,
+    string tramaSegundoApellido,
+    string tramaRazonSocial,
+    string tramaTipoPersona,
+    string tramaNacionalidad,
+    string tramaFechaNacimiento,
+    string tramaGrupoLista
+)
+{
+    DataTable dtErrores = new DataTable();
+    dtErrores.Columns.Add("Codigo");
+    dtErrores.Columns.Add("Descripcion");
+
+    try
+    {
+        // Validación de credenciales
+        if (!CredencialesValidas(usuario, pass))
+        {
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E000";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Credenciales no válidas!";
+            return dtErrores;
+        }
+
+        // 🔹 INICIO CAMBIO: Flag temporal para manejar caso de proveedor
+        bool copiarRazonSocialAPrimerNombre = true;
+        // 🔹 FIN CAMBIO
+
+
+        // 🔹 INICIO CAMBIO: Validaciones de campos de entrada según tipo de persona
+
+        // Validaciones globales
+        if (string.IsNullOrWhiteSpace(tramaIdentidad))
+        {
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E001";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Identidad' no puede estar vacío.";
+        }
+
+        if (string.IsNullOrWhiteSpace(tramaNacionalidad))
+        {
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E002";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Nacionalidad' no puede estar vacío.";
+        }
+
+        if (string.IsNullOrWhiteSpace(tramaFechaNacimiento))
+        {
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E003";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Fecha de Nacimiento' no puede estar vacío.";
+        }
+
+        if (string.IsNullOrWhiteSpace(tramaGrupoLista))
+        {
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E004";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Grupo Lista' no puede estar vacío.";
+        }
+
+
+        // Validaciones específicas por tipo de persona
+        if (tramaTipoPersona.ToUpper() == "N")
+        {
+            if (string.IsNullOrWhiteSpace(tramaPrimerNombre))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E005";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Nombre' es obligatorio para personas naturales.";
+            }
+
+            if (string.IsNullOrWhiteSpace(tramaSegundoNombre))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E006";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Nombre' es obligatorio para personas naturales.";
+            }
+
+            if (string.IsNullOrWhiteSpace(tramaPrimerApellido))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E007";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Apellido' es obligatorio para personas naturales.";
+            }
+
+            if (string.IsNullOrWhiteSpace(tramaSegundoApellido))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E008";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Apellido' es obligatorio para personas naturales.";
+            }
+        }
+        else if (tramaTipoPersona.ToUpper() == "J")
+        {
+            if (!string.IsNullOrWhiteSpace(tramaPrimerNombre))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E009";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Nombre' debe estar vacío para personas jurídicas.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(tramaSegundoNombre))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E010";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Nombre' debe estar vacío para personas jurídicas.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(tramaPrimerApellido))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E011";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Primer Apellido' debe estar vacío para personas jurídicas.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(tramaSegundoApellido))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E012";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Segundo Apellido' debe estar vacío para personas jurídicas.";
+            }
+
+            if (string.IsNullOrWhiteSpace(tramaRazonSocial))
+            {
+                dtErrores.Rows.Add(1);
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E013";
+                dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Razón Social' es obligatorio para personas jurídicas.";
+            }
+        }
+        else
+        {
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E014";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El campo 'Tipo de Persona' debe ser 'N' (Natural) o 'J' (Jurídica).";
+        }
+
+        // Si hubo errores, devolverlos inmediatamente antes de continuar
+        if (dtErrores.Rows.Count > 0)
+        {
+            return dtErrores;
+        }
+
+        // 🔹 FIN CAMBIO
+
+
+        // 🔹 INICIO CAMBIO: Ajuste temporal para proveedor (caso de RazonSocial)
+        if (copiarRazonSocialAPrimerNombre && tramaTipoPersona.ToUpper() == "J")
+        {
+            if (string.IsNullOrWhiteSpace(tramaPrimerNombre) && !string.IsNullOrWhiteSpace(tramaRazonSocial))
+            {
+                tramaPrimerNombre = tramaRazonSocial;
+            }
+        }
+        // 🔹 FIN CAMBIO
+
+
+        // 🔹 Aquí continúa el flujo original del servicio
+        // Ejemplo: construcción de trama, envío al proveedor, manejo de respuesta, etc.
+        // ...
+
+    }
+    catch (Exception ex)
+    {
+        dtErrores.Rows.Add(1);
+        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E999";
+        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Error inesperado: " + ex.Message;
+    }
+
+    return dtErrores;
+}
