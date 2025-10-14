@@ -1,0 +1,38 @@
+string RealTime = string.Empty;
+string Evento = string.Empty;
+string Usuario = string.Empty;
+string valorClienteJuridico = string.Empty; // NUEVO
+
+SQLSrv qConfiguracionesBD = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_GetConfiguraciones");
+
+// 🔹 Obtener RealTime
+qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 3));
+Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 3");
+DataTable dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+
+if (!qConfiguracionesBD.Success)
+    Logger.Error($"No se pudo obtener RealTime:\n{qConfiguracionesBD.Mensaje}");
+else if (dtLogConfDT.Rows.Count > 0)
+    RealTime = dtLogConfDT.Rows[0][0].ToString();
+
+// 🔹 Obtener Evento
+qConfiguracionesBD.Parametros.Clear();
+qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 4));
+Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 4");
+dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+
+if (!qConfiguracionesBD.Success)
+    Logger.Error($"No se pudo obtener Evento:\n{qConfiguracionesBD.Mensaje}");
+else if (dtLogConfDT.Rows.Count > 0)
+    Evento = dtLogConfDT.Rows[0][0].ToString();
+
+// 🔹 Obtener valor de Cliente Jurídico
+qConfiguracionesBD.Parametros.Clear();
+qConfiguracionesBD.Parametros.Add(new SqlParameter("@IdBuscar", 5));
+Logger.Error($"Ejecutando usp_GetConfiguraciones @IdBuscar: 5");
+dtLogConfDT = qConfiguracionesBD.getDataTableWithParameters();
+
+if (!qConfiguracionesBD.Success)
+    Logger.Error($"No se pudo obtener valor de Cliente Jurídico:\n{qConfiguracionesBD.Mensaje}");
+else if (dtLogConfDT.Rows.Count > 0)
+    valorClienteJuridico = dtLogConfDT.Rows[0][0].ToString().Trim().ToUpper();
