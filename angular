@@ -1,0 +1,674 @@
+npm install bootstrap bootstrap-icons
+
+
+
+--------------
+
+
+"styles": [
+  "node_modules/bootstrap/dist/css/bootstrap.min.css",
+  "node_modules/bootstrap-icons/font/bootstrap-icons.css",
+  "src/styles.scss"
+],
+"scripts": [
+  "node_modules/bootstrap/dist/js/bootstrap.bundle.min.js"
+]
+
+
+
+-----------
+
+import { NgModule } from '@angular/core';
+import { BrowserModule } from '@angular/platform-browser';
+import { AppRoutingModule } from './app-routing.module';
+import { AppComponent } from './app.component';
+import { HttpClientModule, HTTP_INTERCEPTORS } from '@angular/common/http';
+import { CoreModule } from './core/core.module';
+import { SharedModule } from './shared/shared.module';
+
+@NgModule({
+  declarations: [
+    AppComponent
+  ],
+  imports: [
+    BrowserModule,
+    AppRoutingModule,
+    HttpClientModule,
+    CoreModule,
+    SharedModule
+  ],
+  providers: [],
+  bootstrap: [AppComponent]
+})
+export class AppModule { }
+
+
+
+
+-----------------------
+
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-root',
+  template: `<router-outlet></router-outlet>`
+})
+export class AppComponent {}
+
+
+
+
+---------------------------
+
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+
+const routes: Routes = [
+  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+
+  {
+    path: 'login',
+    loadChildren: () =>
+      import('./features/login/login.module').then(m => m.LoginModule)
+  },
+  {
+    path: 'dashboard',
+    loadChildren: () =>
+      import('./features/dashboard/dashboard.module').then(m => m.DashboardModule)
+  },
+
+  { path: '**', redirectTo: '/dashboard' }
+];
+
+@NgModule({
+  imports: [RouterModule.forRoot(routes, { scrollPositionRestoration: 'enabled' })],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}
+
+
+
+------------------------------
+
+
+import { NgModule, Optional, SkipSelf } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HTTP_INTERCEPTORS } from '@angular/common/http';
+import { TokenInterceptor } from './interceptors/token.interceptor';
+
+@NgModule({
+  declarations: [],
+  imports: [CommonModule],
+  providers: [
+    { provide: HTTP_INTERCEPTORS, useClass: TokenInterceptor, multi: true }
+  ]
+})
+export class CoreModule {
+  constructor(@Optional() @SkipSelf() parentModule: CoreModule) {
+    if (parentModule) {
+      throw new Error('CoreModule ya fue importado. Solo debe importarse una vez en AppModule.');
+    }
+  }
+}
+
+
+
+-----------------------
+
+
+
+
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormsModule } from '@angular/forms';
+
+@NgModule({
+  declarations: [],
+  imports: [CommonModule],
+  exports: [CommonModule, ReactiveFormsModule, FormsModule]
+})
+export class SharedModule {}
+
+
+
+
+-----------------------
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { LoginRoutingModule } from './login-routing.module';
+import { LoginComponent } from './components/login/login.component';
+import { SharedModule } from '../../shared/shared.module';
+
+@NgModule({
+  declarations: [LoginComponent],
+  imports: [
+    CommonModule,
+    LoginRoutingModule,
+    SharedModule
+  ]
+})
+export class LoginModule {}
+
+
+
+--------------------
+
+
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { LoginComponent } from './components/login/login.component';
+
+const routes: Routes = [
+  { path: '', component: LoginComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class LoginRoutingModule {}
+
+
+
+----------------------
+
+import { Component } from '@angular/core';
+import { FormBuilder, Validators } from '@angular/forms';
+import { AuthService } from '../../../../core/services/auth.service';
+import { Router } from '@angular/router';
+
+@Component({
+  selector: 'app-login',
+  templateUrl: './login.component.html',
+  styleUrls: ['./login.component.scss']
+})
+export class LoginComponent {
+  loading = false;
+  error = '';
+
+  form = this.fb.group({
+    username: ['', [Validators.required]],
+    password: ['', [Validators.required, Validators.minLength(6)]]
+  });
+
+  constructor(private fb: FormBuilder, private auth: AuthService, private router: Router) {}
+
+  async submit() {
+    this.error = '';
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    this.loading = true;
+    const { username, password } = this.form.value;
+    try {
+      await this.auth.login(username, password);
+      this.router.navigate(['/dashboard']);
+    } catch (err: any) {
+      this.error = err?.error?.message || 'Error en el inicio de sesión';
+    } finally {
+      this.loading = false;
+    }
+  }
+}
+
+
+
+
+----------------
+
+<div class="container vh-100 d-flex justify-content-center align-items-center">
+  <div class="col-12 col-md-5 col-lg-4">
+    <div class="card shadow-sm p-4">
+      <div class="text-center mb-3">
+        <img src="assets/logo.png" alt="Logo" style="height:48px" />
+      </div>
+
+      <h4 class="text-center mb-3">Iniciar sesión</h4>
+
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="mb-3">
+          <label class="form-label">Usuario</label>
+          <input type="text" class="form-control" formControlName="username" [class.is-invalid]="form.controls.username.invalid && form.controls.username.touched" />
+          <div class="invalid-feedback" *ngIf="form.controls.username.invalid && form.controls.username.touched">
+            Usuario requerido
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label">Contraseña</label>
+          <input type="password" class="form-control" formControlName="password" [class.is-invalid]="form.controls.password.invalid && form.controls.password.touched" />
+          <div class="invalid-feedback" *ngIf="form.controls.password.invalid && form.controls.password.touched">
+            Contraseña inválida (mín. 6 caracteres)
+          </div>
+        </div>
+
+        <div *ngIf="error" class="alert alert-danger py-2">{{ error }}</div>
+
+        <button class="btn btn-primary w-100" type="submit" [disabled]="loading">
+          <span *ngIf="!loading">Entrar</span>
+          <span *ngIf="loading" class="spinner-border spinner-border-sm"></span>
+        </button>
+      </form>
+
+      <div class="text-center mt-3 text-muted small">
+        ¿Olvidaste tu contraseña? <a href="#" (click)="$event.preventDefault()">Recuperar</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+-----------
+
+
+.card {
+  border-radius: 12px;
+}
+
+
+
+
+----------------
+
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { DashboardRoutingModule } from './dashboard-routing.module';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { SidebarComponent } from './components/sidebar/sidebar.component';
+import { TopbarComponent } from './components/topbar/topbar.component';
+import { SharedModule } from '../../shared/shared.module';
+
+@NgModule({
+  declarations: [
+    DashboardComponent,
+    SidebarComponent,
+    TopbarComponent
+  ],
+  imports: [
+    CommonModule,
+    DashboardRoutingModule,
+    SharedModule
+  ]
+})
+export class DashboardModule {}
+
+
+
+
+
+------------------------
+
+
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { AuthGuard } from '../../core/guards/auth.guard';
+
+const routes: Routes = [
+  {
+    path: '',
+    component: DashboardComponent,
+    canActivate: [AuthGuard],
+    children: [
+      { path: '', redirectTo: 'home', pathMatch: 'full' },
+      {
+        path: 'home',
+        loadChildren: () => import('./pages/home/home.module').then(m => m.HomeModule)
+      },
+      {
+        path: 'perfil',
+        loadChildren: () => import('./pages/perfil/perfil.module').then(m => m.PerfilModule)
+      },
+      {
+        path: 'settings',
+        loadChildren: () => import('./pages/settings/settings.module').then(m => m.SettingsModule)
+      }
+    ]
+  }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class DashboardRoutingModule {}
+
+
+
+
+-----------------
+
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-dashboard',
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.scss']
+})
+export class DashboardComponent {
+  toggleSidebar() {
+    const wrapper = document.getElementById('wrapper');
+    wrapper?.classList.toggle('toggled');
+  }
+}
+
+
+
+
+------------
+
+
+<div class="d-flex" id="wrapper">
+  <!-- Sidebar -->
+  <app-sidebar></app-sidebar>
+
+  <!-- Page Content -->
+  <div id="page-content-wrapper" class="w-100">
+
+    <!-- Topbar -->
+    <app-topbar (toggleSidebar)="toggleSidebar()"></app-topbar>
+
+    <!-- Main content -->
+    <div class="container-fluid mt-4">
+      <router-outlet></router-outlet>
+    </div>
+
+  </div>
+</div>
+
+
+
+-------------------------
+
+
+:host {
+  display: block;
+}
+
+/* Layout wrapper */
+#wrapper {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar defaults */
+#sidebar-wrapper {
+  width: 250px;
+  min-height: 100vh;
+  background: #0d6efd; /* primary */
+  color: #fff;
+  transition: margin 0.3s ease;
+}
+
+/* Collapsed state on wrapper toggled */
+#wrapper.toggled #sidebar-wrapper {
+  margin-left: -250px;
+}
+
+/* Page content */
+#page-content-wrapper {
+  flex: 1;
+  background: #f8f9fa;
+  min-height: 100vh;
+}
+
+/* Responsive behavior */
+@media (max-width: 991.98px) {
+  #sidebar-wrapper {
+    margin-left: -250px;
+  }
+  #wrapper.toggled #sidebar-wrapper {
+    margin-left: 0;
+  }
+}
+
+
+
+
+
+----------------
+
+
+import { Component } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../../../core/services/auth.service';
+
+@Component({
+  selector: 'app-sidebar',
+  templateUrl: './sidebar.component.html',
+  styleUrls: ['./sidebar.component.scss']
+})
+export class SidebarComponent {
+  constructor(private auth: AuthService, private router: Router) {}
+
+  logout() {
+    this.auth.logout();
+    this.router.navigate(['/login']);
+  }
+}
+
+
+
+
+
+--------
+
+
+<div id="sidebar-wrapper" class="d-flex flex-column">
+  <div class="sidebar-heading text-center py-4">
+    <img src="assets/logo-white.png" alt="logo" height="36" />
+    <div class="mt-2 fw-bold">Mi Aplicación</div>
+  </div>
+
+  <div class="list-group list-group-flush flex-grow-1">
+    <a routerLink="/dashboard/home" routerLinkActive="active" class="list-group-item list-group-item-action bg-transparent text-white">
+      <i class="bi bi-house-door me-2"></i> Inicio
+    </a>
+
+    <a class="list-group-item list-group-item-action bg-transparent text-white" data-bs-toggle="collapse" href="#menuCollapse" role="button" aria-expanded="false" aria-controls="menuCollapse">
+      <i class="bi bi-folder2-open me-2"></i> Secciones
+    </a>
+
+    <div class="collapse ps-3" id="menuCollapse">
+      <a routerLink="/dashboard/perfil" routerLinkActive="active" class="list-group-item list-group-item-action bg-transparent text-white ps-4">
+        Perfil
+      </a>
+      <a routerLink="/dashboard/settings" routerLinkActive="active" class="list-group-item list-group-item-action bg-transparent text-white ps-4">
+        Ajustes
+      </a>
+    </div>
+
+    <div class="mt-auto">
+      <a class="list-group-item list-group-item-action bg-transparent text-white" (click)="logout()">
+        <i class="bi bi-box-arrow-right me-2"></i> Cerrar sesión
+      </a>
+    </div>
+  </div>
+</div>
+
+
+
+
+---------
+
+
+
+#sidebar-wrapper {
+  padding-top: 12px;
+}
+
+.sidebar-heading img { filter: brightness(0) invert(1); }
+
+.list-group-item {
+  border: none;
+  padding: 12px 20px;
+}
+
+.list-group-item.active {
+  background: rgba(255,255,255,0.12);
+}
+
+
+
+
+
+--------------
+
+
+
+import { Component, EventEmitter, Output } from '@angular/core';
+import { Router } from '@angular/router';
+import { AuthService } from '../../../../core/services/auth.service';
+
+@Component({
+  selector: 'app-topbar',
+  templateUrl: './topbar.component.html',
+  styleUrls: ['./topbar.component.scss']
+})
+export class TopbarComponent {
+  @Output() toggleSidebar = new EventEmitter<void>();
+
+  constructor(private auth: AuthService, private router: Router) {}
+
+  logout() {
+    this.auth.logout();
+    this.router.navigate(['/login']);
+  }
+}
+
+
+
+
+
+
+------------1111
+
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom shadow-sm">
+  <div class="container-fluid">
+    <button class="btn btn-outline-primary me-2" (click)="toggleSidebar.emit()">
+      <i class="bi bi-list"></i>
+    </button>
+
+    <div class="d-flex align-items-center ms-auto">
+      <div class="dropdown">
+        <button class="btn btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-person-circle me-1"></i> Usuario
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" routerLink="/dashboard/perfil">Mi perfil</a></li>
+          <li><hr class="dropdown-divider" /></li>
+          <li><a class="dropdown-item" (click)="logout()">Cerrar sesión</a></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</nav>
+
+
+
+
+
+
+-----------
+
+
+
+.navbar { height: 64px; }
+
+
+
+
+-----------
+
+
+import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { HomeRoutingModule } from './home-routing.module';
+import { HomeComponent } from './home.component';
+import { SharedModule } from '../../../../shared/shared.module';
+
+@NgModule({
+  declarations: [HomeComponent],
+  imports: [CommonModule, HomeRoutingModule, SharedModule]
+})
+export class HomeModule {}
+
+
+
+
+
+------------
+
+
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
+import { HomeComponent } from './home.component';
+
+const routes: Routes = [
+  { path: '', component: HomeComponent }
+];
+
+@NgModule({
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
+})
+export class HomeRoutingModule {}
+
+
+
+
+
+-----------
+
+
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-home',
+  template: `
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="card-title">Bienvenido</h5>
+          <p class="card-text">Este es el panel de inicio. Aquí puedes colocar indicadores, gráficas o resumenes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  `
+})
+export class HomeComponent {}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
