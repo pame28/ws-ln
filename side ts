@@ -1,18 +1,6 @@
-import { Component, OnInit, Output, EventEmitter, HostListener, Inject, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, Output, EventEmitter } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
-import { CommonModule, isPlatformBrowser } from '@angular/common';
-import { RouterModule } from '@angular/router';
 import { filter } from 'rxjs/operators';
-
-interface MenuItem {
-  label: string;
-  icon: string;
-  link: string;
-  active?: boolean;
-  badge?: string | number;
-  submenu?: MenuItem[];
-  expanded?: boolean;
-}
 
 @Component({
   selector: 'app-side-bar',
@@ -20,145 +8,52 @@ interface MenuItem {
   styleUrls: ['./side-bar.component.css']
 })
 export class SideBarComponent implements OnInit {
-  @Output() toggleSidebarEvent = new EventEmitter<boolean>();
+  @Output() sidebarToggled = new EventEmitter<boolean>();
   
   isCollapsed = false;
-  isDarkTheme = false;
-  isMobile = false;
-  showMobileMenu = false;
   currentRoute = '';
   
-  // Menú principal con submenús
-  menuItems: MenuItem[] = [
-    { 
-      label: 'Dashboard', 
-      icon: 'fa-chart-line', 
-      link: '/dashboard',
-      active: true 
-    },
-    { 
-      label: 'Usuarios', 
-      icon: 'fa-users', 
-      link: '/users',
-      badge: 3
-    },
-    { 
-      label: 'Proyectos', 
-      icon: 'fa-briefcase', 
-      link: '/projects',
-      submenu: [
-        { label: 'Todos los Proyectos', icon: 'fa-list', link: '/projects/all' },
-        { label: 'En Progreso', icon: 'fa-spinner', link: '/projects/in-progress' },
-        { label: 'Completados', icon: 'fa-check-circle', link: '/projects/completed' },
-        { label: 'Archivados', icon: 'fa-archive', link: '/projects/archived' }
-      ]
-    },
-    { 
-      label: 'Calendario', 
-      icon: 'fa-calendar-alt', 
-      link: '/calendar'
-    },
-    { 
-      label: 'Mensajes', 
-      icon: 'fa-envelope', 
-      link: '/messages',
-      badge: 5
-    },
-    { 
-      label: 'Archivos', 
-      icon: 'fa-folder', 
-      link: '/files',
-      submenu: [
-        { label: 'Documentos', icon: 'fa-file-word', link: '/files/documents' },
-        { label: 'Imágenes', icon: 'fa-file-image', link: '/files/images' },
-        { label: 'Videos', icon: 'fa-file-video', link: '/files/videos' },
-        { label: 'Compartidos', icon: 'fa-share-alt', link: '/files/shared' }
-      ]
-    },
-    { 
-      label: 'Configuración', 
-      icon: 'fa-cog', 
-      link: '/settings',
-      submenu: [
-        { label: 'Perfil', icon: 'fa-user-cog', link: '/settings/profile' },
-        { label: 'Seguridad', icon: 'fa-shield-alt', link: '/settings/security' },
-        { label: 'Notificaciones', icon: 'fa-bell', link: '/settings/notifications' },
-        { label: 'Preferencias', icon: 'fa-sliders-h', link: '/settings/preferences' }
-      ]
-    },
-    { 
-      label: 'Ayuda', 
-      icon: 'fa-question-circle', 
-      link: '/help'
-    }
+  // Menú básico - puedes modificarlo según tus rutas reales
+  menuItems = [
+    { label: 'Inicio', icon: 'fa-home', link: '/home', exact: true },
+    { label: 'Dashboard', icon: 'fa-chart-line', link: '/dashboard' },
+    { label: 'Usuarios', icon: 'fa-users', link: '/users' },
+    { label: 'Configuración', icon: 'fa-cog', link: '/settings' },
+    { label: 'Ayuda', icon: 'fa-question-circle', link: '/help' }
   ];
 
-  // Datos del usuario
-  userData = {
-    name: 'Juan Pérez',
-    role: 'Administrador',
-    avatar: 'assets/images/avatar.jpg',
-    email: 'juan.perez@empresa.com'
-  };
-
-  // Opciones de temas
-  themes = [
-    { name: 'Claro', value: 'light', icon: 'fa-sun' },
-    { name: 'Oscuro', value: 'dark', icon: 'fa-moon' },
-    { name: 'Azul', value: 'blue', icon: 'fa-palette' }
-  ];
-
-  constructor(
-    private router: Router,
-    @Inject(PLATFORM_ID) private platformId: Object
-  ) {}
+  constructor(private router: Router) {}
 
   ngOnInit() {
-    this.checkScreenSize();
-    this.initTheme();
-    this.initSidebarState();
-    this.setupRouterListener();
+    // Inicializar estado del sidebar
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    if (savedState) {
+      this.isCollapsed = savedState === 'true';
+    }
     
-    // Actualizar estado activo basado en la ruta actual
-    this.updateActiveMenu(this.router.url);
-  }
-
-  @HostListener('window:resize', ['$event'])
-  onResize(event: Event) {
-    this.checkScreenSize();
-  }
-
-  private checkScreenSize() {
-    if (isPlatformBrowser(this.platformId)) {
-      this.isMobile = window.innerWidth < 768;
-      if (this.isMobile) {
-        this.isCollapsed = true;
-        this.toggleSidebarEvent.emit(true);
-      }
-    }
-  }
-
-  private initTheme() {
-    if (isPlatformBrowser(this.platformId)) {
-      const savedTheme = localStorage.getItem('app-theme') || 'light';
-      this.applyTheme(savedTheme);
-      this.isDarkTheme = savedTheme === 'dark';
-    }
-  }
-
-  private initSidebarState() {
-    if (isPlatformBrowser(this.platformId)) {
-      const savedState = localStorage.getItem('sidebar-collapsed');
-      if (savedState !== null) {
-        this.isCollapsed = savedState === 'true';
-        this.toggleSidebarEvent.emit(this.isCollapsed);
-      }
-    }
-  }
-
-  private setupRouterListener() {
+    // Escuchar cambios de ruta para marcar el item activo
     this.router.events
       .pipe(filter(event => event instanceof NavigationEnd))
       .subscribe((event: any) => {
         this.currentRoute = event.url;
-        this.updateActiveMenu
+      });
+  }
+
+  toggleSidebar() {
+    this.isCollapsed = !this.isCollapsed;
+    this.sidebarToggled.emit(this.isCollapsed);
+    localStorage.setItem('sidebar-collapsed', this.isCollapsed.toString());
+  }
+
+  navigateTo(link: string) {
+    this.router.navigate([link]);
+  }
+
+  // Verificar si un item del menú está activo
+  isActive(link: string, exact: boolean = false): boolean {
+    if (exact) {
+      return this.currentRoute === link;
+    }
+    return this.currentRoute.startsWith(link);
+  }
+}
