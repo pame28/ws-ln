@@ -1,0 +1,73 @@
+// side-bar.component.ts
+import { Component, OnInit, Output, EventEmitter } from '@angular/core';
+import { Router } from '@angular/router';
+
+interface MenuItem {
+  label: string;
+  icon: string;
+  link: string;
+  active?: boolean;
+  badge?: string;
+}
+
+@Component({
+  selector: 'app-side-bar',
+  templateUrl: './side-bar.component.html',
+  styleUrls: ['./side-bar.component.css']
+})
+export class SideBarComponent implements OnInit {
+  @Output() toggleSidebarEvent = new EventEmitter<boolean>();
+  
+  isCollapsed = false;
+  isDarkTheme = false;
+  
+  menuItems: MenuItem[] = [
+    { label: 'Dashboard', icon: 'fa-chart-line', link: '/dashboard', active: true },
+    { label: 'Usuarios', icon: 'fa-users', link: '/users', badge: '3' },
+    { label: 'Proyectos', icon: 'fa-briefcase', link: '/projects' },
+    { label: 'Calendario', icon: 'fa-calendar-alt', link: '/calendar' },
+    { label: 'Mensajes', icon: 'fa-envelope', link: '/messages', badge: '5' },
+    { label: 'Archivos', icon: 'fa-folder', link: '/files' },
+    { label: 'Configuración', icon: 'fa-cog', link: '/settings' },
+    { label: 'Ayuda', icon: 'fa-question-circle', link: '/help' }
+  ];
+
+  constructor(private router: Router) {}
+
+  ngOnInit() {
+    // Verificar tema guardado en localStorage
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      this.toggleTheme();
+    }
+  }
+
+  toggleSidebar() {
+    this.isCollapsed = !this.isCollapsed;
+    this.toggleSidebarEvent.emit(this.isCollapsed);
+    
+    // Guardar estado en localStorage
+    localStorage.setItem('sidebarCollapsed', this.isCollapsed.toString());
+    
+    // Notificar a otros componentes
+    this.emitResizeEvent();
+  }
+
+  toggleTheme() {
+    this.isDarkTheme = !this.isDarkTheme;
+    if (this.isDarkTheme) {
+      document.body.classList.add('dark-theme');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.body.classList.remove('dark-theme');
+      localStorage.setItem('theme', 'light');
+    }
+  }
+
+  private emitResizeEvent() {
+    // Disparar evento de redimensionamiento
+    window.dispatchEvent(new Event('resize'));
+  }
+
+  setActiveItem(index: number) {
+    this.menuItems.forEach((
