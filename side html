@@ -1,0 +1,50 @@
+<!-- side-bar.component.html -->
+<aside class="sidebar" [class.collapsed]="isCollapsed">
+  <!-- Logo y toggle -->
+  <div class="sidebar-header">
+    <div class="logo-container" *ngIf="!isCollapsed">
+      <i class="fas fa-cube logo-icon"></i>
+      <span class="logo-text">MiApp</span>
+    </div>
+    <button class="toggle-btn" (click)="toggleSidebar()">
+      <i class="fas" [class.fa-chevron-left]="!isCollapsed" [class.fa-chevron-right]="isCollapsed"></i>
+    </button>
+  </div>
+
+  <!-- Menú principal -->
+  <nav class="sidebar-menu">
+    <ul>
+      <li *ngFor="let item of menuItems" [class.active]="item.active">
+        <a [routerLink]="item.link" routerLinkActive="active-link">
+          <i class="fas" [class]="item.icon"></i>
+          <span class="menu-text">{{item.label}}</span>
+          <span *ngIf="item.badge" class="badge">{{item.badge}}</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Menú inferior (usuario, configuración) -->
+  <div class="sidebar-footer">
+    <div class="user-profile" *ngIf="!isCollapsed">
+      <div class="avatar">
+        <i class="fas fa-user"></i>
+      </div>
+      <div class="user-info">
+        <span class="user-name">Usuario</span>
+        <span class="user-role">Administrador</span>
+      </div>
+      <button class="settings-btn">
+        <i class="fas fa-cog"></i>
+      </button>
+    </div>
+    
+    <div class="theme-switcher" *ngIf="!isCollapsed">
+      <span><i class="fas fa-moon"></i> Modo Oscuro</span>
+      <label class="switch">
+        <input type="checkbox" (change)="toggleTheme()" [checked]="isDarkTheme">
+        <span class="slider round"></span>
+      </label>
+    </div>
+  </div>
+</aside>
