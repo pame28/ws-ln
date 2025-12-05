@@ -1,0 +1,63 @@
+USE [wsListasNegras_MonitorPlus]
+GO
+/****** Object:  StoredProcedure [dbo].[usp_LogEnvioRespuesta]    Script Date: 5/12/2025 12:09:01 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+-- =============================================
+-- Author:		Mauricio Calderon
+-- Create date: 20210901
+-- Description:	Log de Envio y Respuesta
+-- =============================================
+ALTER PROCEDURE [dbo].[usp_LogEnvioRespuesta] --'app_Prueba1', 'S22092021114501500JOSE      0501198903860     JOSE                                              DOLORES                                           CORTES                                            MATUS                                             N20210922HONDUREÑO                                                                                                                                                                                                                   1989041009                                               ','    01019995014313                                                                                                                                                                                 IGLESIA DE LOS HERMANOSF                                                                                                                                                                                 IGLESIA DE LOS HERMANOS89.54                                                   OFAC'
+	-- Add the parameters for the stored procedure here
+	@UserName varchar(50)
+	,@TramaEnviada varchar(Max)
+	,@Respuesta varchar(Max)
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+	declare @porcentajeBP decimal(18,2) = (SELECT cast(valor as decimal(18,2)) FROM configuraciones WHERE idConfig=2)
+	declare @porcentajePlus decimal(18,2) = 0
+	declare @ProcentajeRecibido varchar(10) = substring(@Respuesta,420,10)
+
+	if(len(ltrim(rtrim(@ProcentajeRecibido)))) > 0
+		Set @porcentajePlus = cast(substring(@Respuesta,420,10)as decimal);
+	
+--	declare @identidad1 varchar(18) = substring(@Respuesta, 1,18);
+--	declare @nombre1 varchar(200) = substring(@Respuesta, 19,200);
+--	declare @respuesta1 varchar(1) = 'F'	
+--	declare @nombrecoincidencia1 varchar(200) = substring(@Respuesta, 220,200);
+--	declare @pocentaje1 varchar(10) = substring(@Respuesta, 420,10);
+--	declare @lista1 varchar(50) = substring(@Respuesta, 430,50);
+
+	declare @identidad1 varchar(18) = space(18);
+	declare @nombre1 varchar(200) = space(200);
+	declare @respuesta1 varchar(1) = space(1);	
+	declare @nombrecoincidencia1 varchar(200) = space(200);
+	declare @pocentaje1 varchar(10) = space(10);
+	declare @lista1 varchar(50) = space(50);
+
+	if @porcentajePlus>=@porcentajeBP
+		 set @respuesta1 = 'V'	
+	else
+		 set @respuesta1  = 'F'
+	
+	declare @RespuestaBP varchar(max) = CONCAT(@identidad1,@nombre1,@respuesta1,@nombrecoincidencia1,@pocentaje1,@lista1);
+
+    -- Insert statements for procedure here
+	insert into LogEnvioRespuesta(UserName, TramaEnviada, Respuesta,RespuestaBP)
+	values
+	(
+		@UserName
+		,@TramaEnviada
+		,@Respuesta
+		,@RespuestaBP
+	)
+
+	select @RespuestaBP
+END
