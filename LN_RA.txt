@@ -1,0 +1,171 @@
+                           
+if (dtogDT.Rows.Count <= 0)
+{
+    if (Properties.Settings.Default.UsarRespuestaAutomatica == false)
+    {
+        try
+        {
+            ServicePointManager.SecurityProtocol =
+            SecurityProtocolType.Tls |           // TLS 1.0
+            SecurityProtocolType.Tls11 |         // TLS 1.1
+            SecurityProtocolType.Tls12;         // TLS 1.2
+
+            // Ignorar la validación del certificado (solo para desarrollo)
+            ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
+
+            respListaNegras = wsListasNegras.SendTransaction(tramaEnviar);
+        }
+        catch (Exception ws)
+        {
+            Logger.Error($"Error consumiendoRecibeInt:\n{ws.Message}\n{ws.StackTrace}");
+
+            dtErrores.Rows.Add(1);
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E019";
+            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Error consumiendo RecibeInt:\n{ws.Message}\n{ws.StackTrace}";
+        }
+    }
+    // Validacion Automatica Activada
+
+ else if (tramaTipoPersona == ClienteJuridico) {
+                                    //Ejemplo de trama de respuesta.
+                                    respListaNegras =
+                                    "01019995014313".PadLeft(18, ' ') //identidad
+                                    + "DOOFENSHMIRTZ".PadLeft(200, ' ') //Nombre
+                                    + "V" //Respuesta
+                                    + "DOOFENSHMIRTZ".PadLeft(200, ' ') //NombreCoincidencia
+                                    + "89.54".PadRight(10, ' ') //Porcentaje
+                                    + "OFAC".PadLeft(50, ' '); //Lista
+
+                                }
+                                else {
+                                respListaNegras =
+                                   "0501200101776".PadLeft(18, ' ') //identidad
+                                   + "JUAN CARLOS PEREZ".PadLeft(200, ' ') //Nombre
+                                   + "V" //Respuesta
+                                   + "JUAN CARLOS PEREZ".PadLeft(200, ' ') //NombreCoincidencia
+                                   + "90.54".PadRight(10, ' ') //Porcentaje
+                                   + "OFAC".PadLeft(50, ' '); //Lista
+                            
+                            }
+
+                            //Guarda LogSQL 
+                            SQLSrv qLog = new SQLSrv(Properties.Settings.Default.cnx_wsListasNegras, "usp_LogEnvioRespuesta");
+                            qLog.Parametros.Add(new SqlParameter("@UserName", usuario));
+                            qLog.Parametros.Add(new SqlParameter("@TramaEnviada", tramaEnviar));
+                            qLog.Parametros.Add(new SqlParameter("@Respuesta", respListaNegras));
+
+                            Logger.Error($"Ejecutando usp_LogEnvioRespuesta: \nUserName: {usuario}\nTramaEnviada: '{tramaEnviar}'\nTramaRespuesta: '{respListaNegras}'");
+
+                            DataTable dtLog = qLog.getDataTableWithParameters();
+
+
+                            if (!qLog.Success)
+                                Logger.Error($"No se pudo guardar LogSQL:\n{qLog.Mensaje}");
+                            else
+                            {
+                                if (dtLog.Rows.Count > 0)
+                                    respListaNegras = dtLog.Rows[0][0].ToString();
+                            }
+                        }
+
+                        /* 
+
+                        El cliente web que consume el web services puede esperar las siguientes respuestas por parte del servicio RecibeInt:
+                        1.Encolamiento exitoso: Enqueue.
+                        2.Encolamiento no exitoso: Failed to Enqueue.Esto puede deberse por errores de autorización a las colas MS - Queuing.
+                        3.En caso la trama no sea correcta: Transaction error, check the date fields in the header, user in the header or length transaction.
+                        4.En caso no se encontrará el evento parametrizado dentro de Monitor Plus®: Event not Found.
+                        5.En caso el evento no se encuentre en el mensaje posteado: Event not Found in trx.
+
+                        */
+
+                        if (string.IsNullOrEmpty(respListaNegras))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E020";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"No se obtuvo respuesta de RecibeInt de MonitorPlus.";
+                        }
+                        else if (respListaNegras.Contains("Enqueue"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E001";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Encolamiento exitoso.";
+                        }
+                        else if (respListaNegras.Contains("Failed to Enqueue"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E002";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Encolamiento no exitoso. Esto puede deberse por errores de autorización a las colas MS - Queuing.";
+                        }
+                        else if (respListaNegras.Contains("Transaction error"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E003";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "Error de transacción, verifique los campos de fecha en el encabezado, usuario en el encabezado o longitud de la transacción.";
+                        }
+                        else if (respListaNegras.Contains("Event not Found"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E004";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "No se encontrará el evento parametrizado dentro de Monitor Plus®";
+                        }
+                        else if (respListaNegras.Contains("Event not Found in trx"))
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E005";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = "El evento no se encuentre en el mensaje posteado";
+                        }
+                        else if (respListaNegras.Length != 479)
+                        {
+                            dtErrores.Rows.Add(1);
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E018";
+                            dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Ancho ({respListaNegras.Length.ToString()}) de Trama de Respuesta no esperado.\nRespuesta Recibida: {respListaNegras}";
+                        }
+                        else
+                        {
+                            //Identidad     Longitud    18      1,18
+                            string respIdentidad = respListaNegras.Substring(0, 18).Trim();
+                            //Nombre        Longitud    100     19,100
+                            string respNombre = respListaNegras.Substring(18, 200).Trim();
+                            //Respuesta     Longitud    1       120,1
+                            string respRespuesta = respListaNegras.Substring(218, 1).Trim();
+                            //NombreCoincidencia    Longitud    150     123,150
+                            string respNombreCoincidencia = respListaNegras.Substring(219, 200).Trim();
+                            //Porcentaje    Longitud    10      273,10
+                            string respPorcentaje = respListaNegras.Substring(419, 10).Trim();
+                            //Lista         Longitud    50      283,50
+                            string respLista = respListaNegras.Substring(429, 50).Trim()    ;
+
+
+                            //Agrega a dtListaNegra la respuesta recibida
+                            dtListaNegra.Rows.Add(1);
+                            dtListaNegra.Rows[dtListaNegra.Rows.Count - 1]["Respuesta"] = respRespuesta;
+                        }
+                    }
+                    catch (Exception ex1)
+                    {
+                        Logger.Error($"EnvioTransaccion - Error General:\n{ex1.Message}");
+
+                        dtErrores.Rows.Add(1);
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E017";
+                        dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Error General - {ex1.Message}";
+                    }
+                }
+            }
+
+
+
+
+
+
+
+
+Tengo un problema con la respuesta automatica, para empezar noto un error, ya que, si te fijas la respuesta respueata automatica devuelve V, pero esa informaciónn nunca me la responde como tal, me devulve siempre falso
+Ahora, veo que si se me guarda esa info en la BD entonces si supongo que es porque nunca le pasamos ese valor para que me lo responda.
+Ese es un error que hay que corregir.
+Pero ademas me gustaria contemplar 5 escenarios diferntes en esa respuesta automatica...
+1. Si el es x cliente Juridico que me devuelva V
+2. Si es x cliente Juridico que me devuelba F
+3. Si es x cliente Natural que me devuelva F
+4. Si es x cliente Natural que me devuelva V
+5. Este es mas que nada como de excepcion o no se como manejarlo, si no es ninguno de los 4 casos anteriores entonces que me devuelva F
