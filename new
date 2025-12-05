@@ -1,0 +1,74 @@
+else
+{
+    string identidad = tramaEnviar.Substring(0, 18).Trim();
+    string nombre = "";
+    string resultado = "";
+    string nombreCoincidencia = "";
+    string porcentaje = "90.00";
+    string lista = "OFAC";
+
+    // ============================================
+    //   ESCENARIO 1 → Jurídico → V
+    // ============================================
+    if (tramaTipoPersona == ClienteJuridico 
+        && (identidad == "0101200000011" || identidad == "0101200000012"))
+    {
+        nombre = "EMPRESA JURIDICA A";
+        resultado = "V";
+        nombreCoincidencia = nombre;
+    }
+
+    // ============================================
+    //   ESCENARIO 2 → Jurídico → F
+    // ============================================
+    else if (tramaTipoPersona == ClienteJuridico
+        && (identidad == "0101200000013" || identidad == "0101200000014"))
+    {
+        nombre = "EMPRESA JURIDICA B";
+        resultado = "F";
+        nombreCoincidencia = nombre;
+    }
+
+    // ============================================
+    //   ESCENARIO 3 → Natural → F
+    // ============================================
+    else if (tramaTipoPersona != ClienteJuridico
+        && (identidad == "0801199000011" || identidad == "0801199000012"))
+    {
+        nombre = "JUAN PEREZ";
+        resultado = "F";
+        nombreCoincidencia = nombre;
+    }
+
+    // ============================================
+    //   ESCENARIO 4 → Natural → V
+    // ============================================
+    else if (tramaTipoPersona != ClienteJuridico
+        && (identidad == "0801199000013" || identidad == "0801199000014"))
+    {
+        nombre = "MARIA LOPEZ";
+        resultado = "V";
+        nombreCoincidencia = nombre;
+    }
+
+    // ============================================
+    //   ESCENARIO 5 → Default → F
+    // ============================================
+    else
+    {
+        nombre = "CLIENTE NO CONFIGURADO";
+        resultado = "F";
+        nombreCoincidencia = nombre;
+    }
+
+    // ============================================
+    //   ARMAR TRAMA – MISMA ESTRUCTURA TUYA
+    // ============================================
+    respListaNegras =
+        identidad.PadLeft(18, ' ')
+        + nombre.PadLeft(200, ' ')
+        + resultado
+        + nombreCoincidencia.PadLeft(200, ' ')
+        + porcentaje.PadRight(10, ' ')
+        + lista.PadLeft(50, ' ');
+}
