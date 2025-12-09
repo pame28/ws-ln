@@ -1,0 +1,57 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+
+namespace wsListasNegras.respuestaAutomatica
+{
+    public static class RespuestasAutomaticasConfig
+    {
+        public static List<EscenarioRespuesta> Escenarios = new List<EscenarioRespuesta>
+    {
+        new EscenarioRespuesta {
+            TipoPersona = "J",
+            Identidad = "01019995014313",
+            Nombre = "DOOFENSHMIRTZ",
+            Respuesta = "V",
+            NombreCoincidencia = "DOOFENSHMIRTZ",
+            Porcentaje = "100",
+            Lista = "OFAC"
+        },
+        new EscenarioRespuesta {
+            TipoPersona = "J",
+            Identidad = "01019995014314",
+            Nombre = "DOOFENSHMIRTZ 2.0",
+            Respuesta = "F",
+            NombreCoincidencia = "DOOFENSHMIRTZ 2.0",
+            Porcentaje = "0",
+            Lista = "OFAC"
+        },
+        new EscenarioRespuesta {
+            TipoPersona = "N",
+            Identidad = "01019995014315",
+            Nombre = "DANIEL JUAN LOPEZ",
+            Respuesta = "F",
+            NombreCoincidencia = "DANIEL JUAN LOPEZ",
+            Porcentaje = "0",
+            Lista = "OFAC"
+        },
+        new EscenarioRespuesta {
+            TipoPersona = "N",
+            Identidad = "01019995014316",
+            Nombre = "JOEL JUAN LOPEZ",
+            Respuesta = "V",
+            NombreCoincidencia = "JOEL JUAN LOPEZ",
+            Porcentaje = "100",
+            Lista = "OFAC"
+        }
+    };
+    }
+}
+
+
+
+Mira, todo me funciona muy bien. Pero considero que hay ciertas cosas que se pueden mejorar, porque, lo que yo quiero es que, un usuario inexperto sea capaz de llenar este archivo.. y hay datos que se repiten, entonces me gustaria buscar la forma de que no aparezcan ahi directamente para que el usuario los llene: son tres los campos de los que te hablo:
+- NombreCoincidencia siempre sera = Nombre
+-El Porcentaje quiero que si la respuesta es V entonces el porcentaje es 100 si la respyesta es F entonces el porcentaje es 0
+-Lista siempre sera OFAC
