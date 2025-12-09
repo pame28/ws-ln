@@ -1,0 +1,112 @@
+
+                            if (Properties.Settings.Default.UsarRespuestaAutomatica == false)
+                            {
+                                try
+                                {
+                                    ServicePointManager.SecurityProtocol =
+                                    SecurityProtocolType.Tls |           // TLS 1.0
+                                    SecurityProtocolType.Tls11 |         // TLS 1.1
+                                    SecurityProtocolType.Tls12;         // TLS 1.2
+
+                                    // Ignorar la validación del certificado (solo para desarrollo)
+                                    ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => true;
+
+                                    respListaNegras = wsListasNegras.SendTransaction(tramaEnviar);
+                                }
+                                catch (Exception ws)
+                                {
+                                    Logger.Error($"Error consumiendoRecibeInt:\n{ws.Message}\n{ws.StackTrace}");
+
+                                    dtErrores.Rows.Add(1);
+                                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Codigo"] = "E019";
+                                    dtErrores.Rows[dtErrores.Rows.Count - 1]["Descripcion"] = $"Error consumiendo RecibeInt:\n{ws.Message}\n{ws.StackTrace}";
+                                }
+                            }
+                            // RESPUESTA AUTOMATICA
+
+                            else
+                            {
+                            
+                                // ============================================
+                                //   ESCENARIO 1 → Jurídico → V
+                                // ============================================
+                                if (tramaTipoPersona == ClienteJuridico
+                                    && (tramaIdentidad == "01019995014313"))
+                                {
+                                    respListaNegras =
+                                  "01019995014313".PadLeft(18, ' ') //identidad
+                                  + "DOOFENSHMIRTZ".PadLeft(200, ' ') //Nombre
+                                  + "V" //Respuesta
+                                  + "DOOFENSHMIRTZ".PadLeft(200, ' ') //NombreCoincidencia
+                                  + "100".PadRight(10, ' ') //Porcentaje
+                                  + "OFAC".PadLeft(50, ' '); //Lista
+                                }
+
+                                // ============================================
+                                //   ESCENARIO 2 → Jurídico → F
+                                // ============================================
+                                else if (tramaTipoPersona == ClienteJuridico
+                                    && (tramaIdentidad == "01019995014314"))
+                                {
+                                    respListaNegras =
+                                 "01019995014314".PadLeft(18, ' ') //identidad
+                                 + "DOOFENSHMIRTZ 2.0".PadLeft(200, ' ') //Nombre
+                                 + "F" //Respuesta
+                                 + "DOOFENSHMIRTZ 2.0".PadLeft(200, ' ') //NombreCoincidencia
+                                 + "0".PadRight(10, ' ') //Porcentaje
+                                 + "OFAC".PadLeft(50, ' '); //Lista
+
+
+                                } 
+                                   // ============================================
+                                   //   ESCENARIO 3 → Natural → F
+                                   // ============================================
+
+                                else if (tramaTipoPersona == ClienteNatural
+                                    && (tramaIdentidad == "01019995014315"))
+                                {
+                                    respListaNegras =
+                                  "01019995014315".PadLeft(18, ' ') //identidad
+                                  + "DANIEL JUAN LOPEZ".PadLeft(200, ' ') //Nombre
+                                  + "F" //Respuesta
+                                  + "DANIEL JUAN LOPEZ".PadLeft(200, ' ') //NombreCoincidencia
+                                  + "0".PadRight(10, ' ') //Porcentaje
+                                  + "OFAC".PadLeft(50, ' '); //Lista
+                                }
+
+                                // ============================================
+                                //   ESCENARIO 4 → Natural → V
+                                // ============================================
+                                else if (tramaTipoPersona == ClienteNatural
+                                    && (tramaIdentidad == "01019995014316"))
+                                {
+                                    respListaNegras =
+                                  "01019995014316".PadLeft(18, ' ') //identidad
+                                  + "JOEL JUAN LOPEZ".PadLeft(200, ' ') //Nombre
+                                  + "V" //Respuesta
+                                  + "JOEL JUAN LOPEZ".PadLeft(200, ' ') //NombreCoincidencia
+                                  + "100".PadRight(10, ' ') //Porcentaje
+                                  + "OFAC".PadLeft(50, ' '); //Lista
+                                }
+
+                                // ============================================
+                                //   ESCENARIO 5 → Default → F
+                                // ============================================
+                               
+                                else
+                                {
+                                    respListaNegras =
+                                  "01019995014317".PadLeft(18, ' ') //identidad
+                                  + "REPUESTA AUT. NO SE ENCONTRO".PadLeft(200, ' ') //Nombre
+                                  + "F" //Respuesta
+                                  + "REPUESTA AUT. NO SE ENCONTRO".PadLeft(200, ' ') //NombreCoincidencia
+                                  + "50".PadRight(10, ' ') //Porcentaje
+                                  + "OFAC".PadLeft(50, ' '); //Lista
+                                }
+
+
+
+
+                                Ves que tengo datos quemados para la respuesta automatica? Me gustaria agregar una clase o un xml para manejar eso de manera separa
+
+                                Dame todas las actualizaciones que necesito para hacerlo realidad
