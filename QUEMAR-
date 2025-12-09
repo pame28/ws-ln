@@ -55,3 +55,24 @@ Mira, todo me funciona muy bien. Pero considero que hay ciertas cosas que se pue
 - NombreCoincidencia siempre sera = Nombre
 -El Porcentaje quiero que si la respuesta es V entonces el porcentaje es 100 si la respyesta es F entonces el porcentaje es 0
 -Lista siempre sera OFAC
+
+
+public class EscenarioRespuesta
+{
+    public string TipoPersona { get; set; }
+    public string Identidad { get; set; }
+    public string Nombre { get; set; }
+
+    // El usuario SÍ llena esto
+    public string Respuesta { get; set; } // "V" o "F"
+
+    // PROPIEDADES CALCULADAS (no las llena el usuario)
+    public string NombreCoincidencia => Nombre;
+
+    public string Porcentaje => Respuesta == "V" ? "100" : "0";
+
+    public string Lista => "OFAC";
+}
+
+
+
