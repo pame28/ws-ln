@@ -1,70 +1,35 @@
-{
-  "Escenarios": [
-    {
-      "TipoPersona": "J",
-      "Identidad": "01019995014313",
-      "Nombre": "DOOFENSHMIRTZ",
-      "Respuesta": "V"
-    },
-    {
-      "TipoPersona": "J",
-      "Identidad": "01019995014314",
-      "Nombre": "DOOFENSHMIRTZ 2.0",
-      "Respuesta": "F"
-    },
-    {
-      "TipoPersona": "N",
-      "Identidad": "01019995014315",
-      "Nombre": "DANIEL JUAN LOPEZ",
-      "Respuesta": "F"
-    },
-    {
-      "TipoPersona": "N",
-      "Identidad": "01019995014316",
-      "Nombre": "JOEL JUAN LOPEZ",
-      "Respuesta": "V"
-    }
-  ]
-}
-
-
-
-
----/----1111
-
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Web;
+using System.Web.Hosting;
 using Newtonsoft.Json;
 
 namespace wsListasNegras.respuestaAutomatica
 {
     public static class RespuestasAutomaticasConfig
     {
-        private static readonly string ConfigPath = 
-            HttpContext.Current.Server.MapPath("~/Config/escenarios.json");
+        // Ruta física al JSON
+        public static string JsonPath => HostingEnvironment.MapPath("~/respuestaAutomatica/RespuestasAutomaticas.json");
 
+        // Leer JSON siempre fresco
         public static List<EscenarioRespuesta> GetEscenarios()
         {
-            try
+            string path = JsonPath;
+
+            if (!File.Exists(path))
+                throw new FileNotFoundException("No se encontró el archivo JSON en: " + path);
+
+            string json;
+            using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var sr = new StreamReader(fs))
             {
-                string json = File.ReadAllText(ConfigPath);
-
-                var wrapper = JsonConvert.DeserializeObject<Wrapper>(json);
-
-                return wrapper?.Escenarios ?? new List<EscenarioRespuesta>();
+                json = sr.ReadToEnd();
             }
-            catch
-            {
-                return new List<EscenarioRespuesta>();
-            }
-        }
 
-        private class Wrapper
-        {
-            public List<EscenarioRespuesta> Escenarios { get; set; }
+            var escenarios = JsonConvert.DeserializeObject<List<EscenarioRespuesta>>(json)
+                             ?? new List<EscenarioRespuesta>();
+
+            return escenarios;
         }
     }
 }
-
