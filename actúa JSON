@@ -18,3 +18,105 @@
     "Respuesta": "F"
   }
 ]
+
+
+---------------
+
+
+using System.Collections.Generic;
+using System.IO;
+using System.Web;
+using Newtonsoft.Json;
+
+namespace wsListasNegras.respuestaAutomatica
+{
+    public static class RespuestasAutomaticasConfig
+    {
+        private static readonly string FilePath =
+            HttpContext.Current.Server.MapPath("~/App_Data/RespuestasAutomaticas.json");
+
+        private static FileSystemWatcher watcher;
+        private static object lockObj = new object();
+
+        public static List<EscenarioRespuesta> Escenarios { get; private set; }
+
+        static RespuestasAutomaticasConfig()
+        {
+            CargarArchivo();
+            IniciarWatcher();
+        }
+
+        private static void CargarArchivo()
+        {
+            lock (lockObj)
+            {
+                try
+                {
+                    if (!File.Exists(FilePath))
+                    {
+                        Escenarios = new List<EscenarioRespuesta>();
+                        return;
+                    }
+
+                    string json = File.ReadAllText(FilePath);
+
+                    Escenarios =
+                        JsonConvert.DeserializeObject<List<EscenarioRespuesta>>(json)
+                        ?? new List<EscenarioRespuesta>();
+                }
+                catch
+                {
+                    Escenarios = new List<EscenarioRespuesta>();
+                }
+            }
+        }
+
+        private static void IniciarWatcher()
+        {
+            watcher = new FileSystemWatcher
+            {
+                Path = Path.GetDirectoryName(FilePath),
+                Filter = Path.GetFileName(FilePath),
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+            };
+
+            watcher.Changed += (s, e) =>
+            {
+                System.Threading.Thread.Sleep(200);
+                CargarArchivo();
+            };
+
+            watcher.EnableRaisingEvents = true;
+        }
+    }
+}
+
+
+
+
+---------------------
+
+
+
+
+var escenario = RespuestasAutomaticasConfig.Escenarios
+    .FirstOrDefault(e =>
+        e.TipoPersona == tramaTipoPersona &&
+        e.Identidad == tramaIdentidad);
+
+if (escenario != null)
+{
+    respListaNegras =
+        escenario.Identidad.PadLeft(18, ' ') +
+        escenario.Nombre.PadLeft(200, ' ') +
+        escenario.Respuesta +
+        escenario.NombreCoincidencia.PadLeft(200, ' ') +
+        escenario.Porcentaje.PadRight(10, ' ') +
+        escenario.Lista.PadLeft(50, ' ');
+}
+else
+{
+    // Default automático si no existe en el JSON
+}
+
+
